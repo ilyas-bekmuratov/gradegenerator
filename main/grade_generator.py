@@ -4,28 +4,32 @@ import random
 
 def generate_plausible_grades(final_grade_mark, config):
     # --- Unpack configuration variables ---
-    grade_bands = config.settings['grade_bands']
-    weights = config.settings['weights']
-    num_midterms = config.settings['num_midterms']
-    penalty_bonus_range = config.settings['penalty_bonus_range']
-
-    # Unpack individual max scores
-    midterm_max_scores = config.settings['max_scores'][:num_midterms]
-    so4_max_score = config.settings['max_scores'][-1]
+    settings = config.settings
+    grade_bands = settings['grade_bands']
+    weights = settings['weights']
+    num_midterms = settings['num_midterms']
+    penalty_bonus_range = settings['penalty_bonus_range']
+    midterm_max_scores = settings['max_scores'][:num_midterms]
+    so4_max_score = settings['max_scores'][-1]
     total_max_midterm_score = sum(midterm_max_scores)
 
     # --- 1. Generate Total Percentage ---
     min_pct, max_pct = grade_bands[final_grade_mark]
     mean_pct = (min_pct + max_pct) / 2
-    std_dev_pct = (max_pct - min_pct) / 4 if max_pct > min_pct else 1
+    mean_pct += settings.get('total_percent_mean_offset', 0.0)
+    std_dev_pct = settings.get('total_percent_sd', (max_pct - min_pct) / 4)
+
     total_percent = np.random.normal(loc=mean_pct, scale=std_dev_pct)
     total_percent = np.clip(total_percent, min_pct, max_pct)
 
     # --- 2. Split Total Percentage ---
     min_so4_contrib = max(0, total_percent - weights['sop'])
     max_so4_contrib = min(weights['so4'], total_percent)
+
     mean_split = (min_so4_contrib + max_so4_contrib) / 2
-    std_dev_split = (max_so4_contrib - min_so4_contrib) / 4 if max_so4_contrib > min_so4_contrib else 1
+    mean_split += settings.get('split_mean_offset', 0.0)
+    std_dev_split = settings.get('split_sd', (max_so4_contrib - min_so4_contrib) / 4)
+
     so4_percent_contribution = np.random.normal(loc=mean_split, scale=std_dev_split)
     so4_percent_contribution = np.clip(so4_percent_contribution, min_so4_contrib, max_so4_contrib)
     sop_percent_contribution = total_percent - so4_percent_contribution
@@ -64,8 +68,9 @@ def generate_plausible_grades(final_grade_mark, config):
         "Input Grade": final_grade_mark,
         "Generated Total %": round(total_percent, 1),
         "СОч Score (Final)": so4_score_rounded,
-        "Penalty/Bonus Applied": round(penalty_bonus, 1),
         "СОр Scores (Midterms)": midterm_scores,
         "Adjusted СОр %": round(adjusted_sop_contribution, 1),
-        "Actual СОч %": round(actual_so4_contribution, 1)
+        "Actual СОч %": round(actual_so4_contribution, 1),
+        "Penalty/Bonus Applied": round(penalty_bonus, 1),
     }
+    # 
