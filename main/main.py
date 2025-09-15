@@ -26,7 +26,7 @@ def main():
     settings = config.settings
 
     # --- Focus ONLY on the 'subjects' dictionary as requested ---
-    subjects_data = settings['special2']
+    subjects_data = settings['subjects']
 
     # --- File I/O setup ---
     output_dir = settings['output_dir']
