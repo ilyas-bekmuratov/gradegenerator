@@ -2,7 +2,11 @@
     # --- Output Settings ---
     "output_dir": "reports",  # Folder to save the report in
     "output_filename": "journals.xlsx",  # The name of the Excel file
-    "template_path": "template.xlsx",
+    "template_path": "reports/template.xlsx",
+    "template_sheet_name": "8F template",
+    "start_cell": [7, 39],
+    "subject_name_cell": [1, 2],
+
     # --- Grading Bands ---
     "grade_bands": {
         2: (0, 39.99),
@@ -27,7 +31,7 @@
     # --- Exam Structure and Weighting ---
     "weights": {'sop': 50, 'so4': 50},
     "num_midterms": 3,
-
+    "max_midterms": 4,
     # --- Maximum Scores for Each Exam ---
     # List of max scores: one for each midterm, plus the last one for the final exam.
     # The number of items must be num_midterms + 1.

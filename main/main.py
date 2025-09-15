@@ -30,7 +30,7 @@ def main():
 
     # --- File I/O setup ---
     output_dir = settings['output_dir']
-    template_path = "reports/template.xlsx"
+    template_path = settings['template_path']
     output_filename = os.path.splitext(settings['output_filename'])[0] + ".xlsx"
     filepath = os.path.join(output_dir, output_filename)
 
@@ -85,20 +85,16 @@ def main():
             # --- OUTPUT Formatting (DataFrame preparation) ---
             df = pd.DataFrame(results)
 
-            # ### NEW ### Define the actual and maximum number of midterms
+            #  Define the actual and maximum number of midterms
             num_midterms = settings['num_midterms']
-            MAX_MIDTERMS = 4  # The template is designed for 4 midterm columns
+            max_midterms = settings['max_midterms']  # The template is designed for 4 midterm columns
 
             # Create the midterm DataFrame with the actual number of columns
             actual_midterm_cols = [f'СОр {j+1}' for j in range(num_midterms)]
             midterm_df = pd.DataFrame(df['СОр Scores (Midterms)'].tolist(), columns=actual_midterm_cols, index=df.index)
-
-            # ### NEW ### Adjust DataFrame to match the template's 4 columns
-            # Create a list of all possible midterm columns in the template
-            template_midterm_cols = [f'СОр {j+1}' for j in range(MAX_MIDTERMS)]
+            template_midterm_cols = [f'СОр {j+1}' for j in range(max_midterms)]
 
             # Reindex the midterm DataFrame to add empty columns if needed.
-            # This ensures it always has 4 columns, filling missing ones with blanks.
             midterm_df = midterm_df.reindex(columns=template_midterm_cols)
 
             # Concatenate the adjusted midterm DataFrame with the rest of the data
@@ -113,7 +109,7 @@ def main():
                 'Generated Total %': 'Сумма %', 'Input Grade': 'Оценка за четверть'
             })
 
-            # ### MODIFIED ### Use the full template column list for ordering
+            #  Use the full template column list for ordering
             column_order = (
                     template_midterm_cols +
                     ['Балл СО за четв.', f'% СОр (макс. {max_sop_weight}%)',
@@ -122,7 +118,7 @@ def main():
             # This is the DataFrame with just the student data
             final_df = final_df[column_order]
 
-            # --- MODIFIED: Sheet creation and data writing ---
+            # Sheet creation and data writing ---
             if sheet_name in workbook.sheetnames:
                 sheet = workbook[sheet_name]
                 print(f"  -> Found existing sheet: '{sheet_name}'.")
@@ -133,9 +129,11 @@ def main():
 
             rows = dataframe_to_rows(final_df, index=False, header=False)
 
-            start_row = 7
-            start_col = 39  # Column 'AM'
+            [subject_name_row, subject_name_col] = settings['subject_name_cell']
+            string_to_enter = "Наименование предмета " + subject_name
+            sheet.cell(row=subject_name_row, column=subject_name_col, value=string_to_enter)
 
+            [start_row, start_col] = settings['start_cell']
             for r_idx, row in enumerate(rows, start_row):
                 for c_idx, value in enumerate(row, start_col):
                     # Replace pandas NaN with None for openpyxl
@@ -145,7 +143,7 @@ def main():
 
             print(f"  -> Data written to sheet '{sheet_name}' starting at cell AM7.")
 
-    # --- Save the modified workbook to the output file ---
+    # Save the modified workbook to the output file
     try:
         workbook.save(filepath)
         print(f"\nSuccessfully saved the complete report to '{filepath}'.")
@@ -154,7 +152,7 @@ def main():
 
 
 def split_string_by_pattern(data_string: str) -> list[list[int]]:
-    """Splits a string of grades into 5 lists for (Q1, Q2, Q3, Q4, Final)."""
+    # Splits a string of grades into 5 lists for (Q1, Q2, Q3, Q4, Final).
     result_lists = [[], [], [], [], []]
     for index, char in enumerate(data_string):
         result_lists[index % 5].append(int(char))
@@ -162,7 +160,7 @@ def split_string_by_pattern(data_string: str) -> list[list[int]]:
 
 
 def split_string_by_pattern_special(data_string: str) -> list[list[int]]:
-    """Splits a string of grades into 7 lists for (Q1, Q2, Q3, Q4, Final)."""
+    # Splits a string of grades into 7 lists for (Q1, Q2, Q3, Q4, Final).
     result_lists = [[], [], [], [], [], [], []]
     for index, char in enumerate(data_string):
         result_lists[index % 7].append(int(char))
