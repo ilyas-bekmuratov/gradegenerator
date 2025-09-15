@@ -19,13 +19,11 @@ from openpyxl.utils.dataframe import dataframe_to_rows
 
 def main():
     """
-    Loads an .xlsx template, iterates through subjects defined in the config,
-    generates plausible grades, and populates the template with the data,
-    preserving formatting and leaving empty columns for unused midterms.
+    Loads an existing report or creates a new one from a template.
+    Iterates through subjects, generates grades, and populates sheets
+    without deleting previously generated data.
     """
     settings = config.settings
-
-    # --- Focus ONLY on the 'subjects' dictionary as requested ---
     subjects_data = settings['subjects']
 
     # --- File I/O setup ---
@@ -36,20 +34,31 @@ def main():
 
     os.makedirs(output_dir, exist_ok=True)
 
-    # --- Load the template workbook ---
+    # --- Load Workbook (existing or from template) ---
+    workbook = None
     try:
-        workbook = openpyxl.load_workbook(template_path)
-        print(f"Successfully loaded template from '{template_path}'.")
+        if os.path.exists(filepath):
+            workbook = openpyxl.load_workbook(filepath)
+            print(f"Successfully loaded existing report from '{filepath}'.")
+        else:
+            workbook = openpyxl.load_workbook(template_path)
+            print(f"Creating new report from template '{template_path}'.")
     except FileNotFoundError:
         print(f"Error: Template file not found at '{template_path}'.")
-        print("Please ensure you have saved your template as an .xlsx file in the 'reports' folder.")
+        print("Please ensure your template file exists.")
         return
     except Exception as e:
-        print(f"An error occurred while loading the template: {e}")
+        print(f"An error occurred while loading the workbook: {e}")
         return
 
-    template_sheet = workbook.worksheets[0]
-    print(f"Using '{template_sheet.title}' as the master template sheet.")
+    # --- Get the template sheet to copy ---
+    template_sheet_name = settings.get('template_sheet_name', 'Sheet1')
+    if template_sheet_name not in workbook.sheetnames:
+        print(f"Error: Template sheet named '{template_sheet_name}' not found!")
+        print(f"Make sure a sheet with this name exists in '{template_path}' or '{filepath}'.")
+        return
+    template_sheet = workbook[template_sheet_name]
+    print(f"Using '{template_sheet.title}' as the master template sheet for copying.")
 
     # --- Main Processing Loop ---
     for subject_name, grades_string in subjects_data.items():
@@ -85,19 +94,13 @@ def main():
             # --- OUTPUT Formatting (DataFrame preparation) ---
             df = pd.DataFrame(results)
 
-            #  Define the actual and maximum number of midterms
             num_midterms = settings['num_midterms']
-            max_midterms = settings['max_midterms']  # The template is designed for 4 midterm columns
-
-            # Create the midterm DataFrame with the actual number of columns
+            max_midterms = settings['max_midterms']
             actual_midterm_cols = [f'СОр {j+1}' for j in range(num_midterms)]
             midterm_df = pd.DataFrame(df['СОр Scores (Midterms)'].tolist(), columns=actual_midterm_cols, index=df.index)
             template_midterm_cols = [f'СОр {j+1}' for j in range(max_midterms)]
-
-            # Reindex the midterm DataFrame to add empty columns if needed.
             midterm_df = midterm_df.reindex(columns=template_midterm_cols)
 
-            # Concatenate the adjusted midterm DataFrame with the rest of the data
             df = pd.concat([midterm_df, df.drop(columns=['СОр Scores (Midterms)'])], axis=1)
 
             max_sop_weight = settings['weights']['sop']
@@ -109,42 +112,45 @@ def main():
                 'Generated Total %': 'Сумма %', 'Input Grade': 'Оценка за четверть'
             })
 
-            #  Use the full template column list for ordering
             column_order = (
                     template_midterm_cols +
                     ['Балл СО за четв.', f'% СОр (макс. {max_sop_weight}%)',
                      f'% СОч (макс. {max_so4_weight}%)', 'Сумма %', 'Оценка за четверть']
             )
-            # This is the DataFrame with just the student data
             final_df = final_df[column_order]
 
-            # Sheet creation and data writing ---
+            # --- Sheet creation and data writing ---
             if sheet_name in workbook.sheetnames:
                 sheet = workbook[sheet_name]
-                print(f"  -> Found existing sheet: '{sheet_name}'.")
+                print(f"  -> Found existing sheet: '{sheet_name}'. Overwriting its data.")
             else:
                 sheet = workbook.copy_worksheet(template_sheet)
                 sheet.title = sheet_name
                 print(f"  -> Created sheet '{sheet_name}' by copying template.")
 
-            rows = dataframe_to_rows(final_df, index=False, header=False)
-
+            # Write the subject name to its designated cell
             [subject_name_row, subject_name_col] = settings['subject_name_cell']
-            string_to_enter = "Наименование предмета " + subject_name
+            string_to_enter = f"Наименование предмета: {subject_name}"
             sheet.cell(row=subject_name_row, column=subject_name_col, value=string_to_enter)
 
+            # Write the grade data starting at its designated cell
+            rows = dataframe_to_rows(final_df, index=False, header=False)
             [start_row, start_col] = settings['start_cell']
             for r_idx, row in enumerate(rows, start_row):
                 for c_idx, value in enumerate(row, start_col):
-                    # Replace pandas NaN with None for openpyxl
                     if pd.isna(value):
                         value = None
                     sheet.cell(row=r_idx, column=c_idx, value=value)
 
-            print(f"  -> Data written to sheet '{sheet_name}' starting at cell AM7.")
+            start_cell_addr = sheet.cell(row=start_row, column=start_col).coordinate
+            print(f"  -> Data written to sheet '{sheet_name}' starting at cell {start_cell_addr}.")
 
     # Save the modified workbook to the output file
     try:
+        # Hide the template sheet before saving for a cleaner output file
+        if settings['template_sheet_name'] in workbook.sheetnames:
+            workbook[settings['template_sheet_name']].sheet_state = 'hidden'
+
         workbook.save(filepath)
         print(f"\nSuccessfully saved the complete report to '{filepath}'.")
     except Exception as e:
