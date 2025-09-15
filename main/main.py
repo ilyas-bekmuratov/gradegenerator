@@ -1,8 +1,4 @@
-﻿import pandas as pd
-import os
-import config
-import grade_generator as gg
-"""
+﻿"""
 Generates plausible midterm and final exam scores for a given final grade mark
 by reverse-engineering the grading process.
 ### How to Use the Script
@@ -12,6 +8,11 @@ by reverse-engineering the grading process.
      `python main.py`
 2. You can change the input by modifying the `config file` within the main.py.
 """
+import pandas as pd
+import os
+import config
+import grade_generator as gg
+
 
 
 def main():
@@ -19,13 +20,29 @@ def main():
     settings = config.settings
     final_grades_list = settings['final_grades']
     split_grades = split_string_by_pattern(final_grades_list)
-    current_quarter = settings['current_quarter']
+    current_quarter = settings['current_quarter']-1
+    num_midterms = settings['num_midterms']
     # --- Processing ---
     results = []
+
     for grade in split_grades[current_quarter]:
-        if grade in settings['grade_bands']:
+        # If the grade is 0, it's a missing data point
+        if grade == 0:
+            # Create a dictionary with blank values
+            blank_data = {
+                "Input Grade": '',
+                "СОр Scores (Midterms)": [''] * num_midterms,
+                "СОч Score (Final)": '',
+                "Adjusted СОр %": '',
+                "Actual СОч %": '',
+                "Generated Total %": '',
+            }
+            results.append(blank_data)
+        # Otherwise, if it's a valid grade, generate the scores
+        elif grade in settings['grade_bands']:
             generated_data = gg.generate_plausible_grades(grade, config)
             results.append(generated_data)
+        # If the grade is neither 0 nor valid, it's skipped
 
     # --- OUTPUT Formatting ---
     df = pd.DataFrame(results)
@@ -35,29 +52,19 @@ def main():
     midterm_df = pd.DataFrame(df['СОр Scores (Midterms)'].tolist(), columns=midterm_cols, index=df.index)
     df = pd.concat([midterm_df, df], axis=1)
 
-    # Recalculate the actual СОр % from the generated scores and new max scores
-    total_max_midterm_score = sum(settings['max_scores'][:num_midterms])
-    if total_max_midterm_score > 0:
-        df['Calculated СОр %'] = (df[midterm_cols].sum(axis=1) / total_max_midterm_score) * settings['weights']['sop']
-    else:
-        df['Calculated СОр %'] = 0
-
-    df['Calculated СОр %'] = df['Calculated СОр %'].round(1)
-
     # Prepare the final table for printing
     max_sop_weight = settings['weights']['sop']
     max_so4_weight = settings['weights']['so4']
     final_df = df.rename(columns={
         'СОч Score (Final)': 'Балл СО за четв.',
-        'Penalty/Bonus Applied': 'Adjustment %',
-        'Calculated СОр %': f'% СОр (макс. {max_sop_weight}%)',
+        'Adjusted СОр %': f'% СОр (макс. {max_sop_weight}%)',
         'Actual СОч %': f'% СОч (макс. {max_so4_weight}%)',
         'Generated Total %': 'Сумма %',
         'Input Grade': 'Оценка за четверть'
     })
     column_order = (
             midterm_cols +
-            ['Балл СО за четв.', 'Adjusted СОр %', 'Adjustment %', f'% СОр (макс. {max_sop_weight}%)',
+            ['Балл СО за четв.', f'% СОр (макс. {max_sop_weight}%)',
              f'% СОч (макс. {max_so4_weight}%)', 'Сумма %', 'Оценка за четверть']
     )
     final_df = final_df[column_order]
@@ -91,7 +98,7 @@ def main():
     # Add or replace the new data in the dictionary
     sheets[sheet_name] = output_df
 
-    # Write all sheets back to the file, overwriting it
+    # this for odf
     with pd.ExcelWriter(filepath, engine='odf') as writer:
         for sheet, data in sheets.items():
             data.to_excel(writer, sheet_name=sheet, index=False)
