@@ -13,45 +13,55 @@ import pandas as pd
 import os
 import config
 import grade_generator as gg
+import openpyxl
+from openpyxl.utils.dataframe import dataframe_to_rows
 
 
 def main():
     """
-    Iterates through all subjects and quarters defined in the config,
-    generates plausible grades, and saves them to a single spreadsheet file
-    with one sheet per subject/quarter combination.
+    Loads an .xlsx template, iterates through subjects defined in the config,
+    generates plausible grades, and populates the template with the data,
+    preserving formatting.
     """
     settings = config.settings
+
+    # --- Focus ONLY on the 'subjects' dictionary as requested ---
     subjects_data = settings['subjects']
-    output_dir = settings['output_dir']
-    filename = settings['output_filename']
-    filepath = os.path.join(output_dir, filename)
-    num_midterms = settings['num_midterms']
 
     # --- File I/O setup ---
+    output_dir = settings['output_dir']
+    template_path = "reports/template.xlsx"
+    output_filename = os.path.splitext(settings['output_filename'])[0] + ".xlsx"
+    filepath = os.path.join(output_dir, output_filename)
+
     os.makedirs(output_dir, exist_ok=True)
 
-    all_sheets_data = {}
-    if os.path.exists(filepath):
-        try:
-            existing_file = pd.ExcelFile(filepath, engine='odf')
-            all_sheets_data = {sheet: existing_file.parse(sheet) for sheet in existing_file.sheet_names}
-            print(f"Loaded {len(all_sheets_data)} existing sheets from '{filepath}'.")
-        except Exception as e:
-            print(f"Could not read existing file '{filepath}'. A new file will be created. Error: {e}")
+    # --- Load the template workbook ---
+    try:
+        workbook = openpyxl.load_workbook(template_path)
+        print(f"Successfully loaded template from '{template_path}'.")
+    except FileNotFoundError:
+        print(f"Error: Template file not found at '{template_path}'.")
+        print("Please ensure you have saved your template as an .xlsx file in the 'reports' folder.")
+        return
+    except Exception as e:
+        print(f"An error occurred while loading the template: {e}")
+        return
+
+    # NEW: Assume the first sheet is the master template to be copied ###
+    template_sheet = workbook.worksheets[0]
+    print(f"Using '{template_sheet.title}' as the master template sheet.")
 
     # --- Main Processing Loop ---
     for subject_name, grades_string in subjects_data.items():
         print(f"\n--- Processing Subject: {subject_name} ---")
         split_grades = split_string_by_pattern(grades_string)
 
-        # Inner loop for quarters (Q1 to Q4)
         for i in range(4):
             quarter_num = i + 1
             sheet_name = f"{subject_name} - Q{quarter_num}"
             quarter_grades = split_grades[i]
 
-            # Skip quarters with no grades at all
             if not any(quarter_grades):
                 print(f"  -> Skipping Quarter {quarter_num} (no grades).")
                 continue
@@ -61,7 +71,7 @@ def main():
             for grade in quarter_grades:
                 if grade == 0:
                     blank_data = {
-                        "Input Grade": '', "СОр Scores (Midterms)": [''] * num_midterms,
+                        "Input Grade": '', "СОр Scores (Midterms)": [''] * settings['num_midterms'],
                         "СОч Score (Final)": '', "Adjusted СОр %": '', "Actual СОч %": '',
                         "Generated Total %": '',
                     }
@@ -73,11 +83,12 @@ def main():
             if not results:
                 continue
 
-            # --- OUTPUT Formatting ---
+            # --- OUTPUT Formatting (DataFrame preparation is the same) ---
             df = pd.DataFrame(results)
+            num_midterms = settings['num_midterms']
             midterm_cols = [f'СОр {j+1}' for j in range(num_midterms)]
             midterm_df = pd.DataFrame(df['СОр Scores (Midterms)'].tolist(), columns=midterm_cols, index=df.index)
-            df = pd.concat([midterm_df, df], axis=1)
+            df = pd.concat([midterm_df, df.drop(columns=['СОр Scores (Midterms)'])], axis=1)
 
             max_sop_weight = settings['weights']['sop']
             max_so4_weight = settings['weights']['so4']
@@ -85,39 +96,48 @@ def main():
                 'СОч Score (Final)': 'Балл СО за четв.',
                 'Adjusted СОр %': f'% СОр (макс. {max_sop_weight}%)',
                 'Actual СОч %': f'% СОч (макс. {max_so4_weight}%)',
-                'Generated Total %': 'Сумма %',
-                'Input Grade': 'Оценка за четверть'
+                'Generated Total %': 'Сумма %', 'Input Grade': 'Оценка за четверть'
             })
             column_order = (
                     midterm_cols +
                     ['Балл СО за четв.', f'% СОр (макс. {max_sop_weight}%)',
                      f'% СОч (макс. {max_so4_weight}%)', 'Сумма %', 'Оценка за четверть']
             )
+            # This is the DataFrame with just the student data
             final_df = final_df[column_order]
 
-            max_scores_row = {col: '' for col in final_df.columns}
-            for j, col in enumerate(midterm_cols):
-                max_scores_row[col] = settings['max_scores'][j]
-            max_scores_row['Балл СО за четв.'] = settings['max_scores'][-1]
-            max_scores_df = pd.DataFrame([max_scores_row])
+            # --- MODIFIED: Sheet creation and data writing ---
 
-            output_df = pd.concat([max_scores_df, final_df], ignore_index=True)
+            # NEW: If sheet doesn't exist, copy it from the master template ###
+            if sheet_name in workbook.sheetnames:
+                sheet = workbook[sheet_name]
+                print(f"  -> Found existing sheet: '{sheet_name}'.")
+            else:
+                sheet = workbook.copy_worksheet(template_sheet)
+                sheet.title = sheet_name
+                print(f"  -> Created sheet '{sheet_name}' by copying template.")
 
-            # Add the generated DataFrame to our dictionary of all sheets
-            all_sheets_data[sheet_name] = output_df
-            print(f"  -> Data prepared for sheet '{sheet_name}'.")
+            # NEW: We now write ONLY the student data (from final_df) without headers ###
+            rows = dataframe_to_rows(final_df, index=False, header=False)
 
-    # --- Save to File ---
-    if not all_sheets_data:
-        print("\nNo data was generated. The output file will not be created.")
-        return
+            # NEW: Define start position as cell AM7 ###
+            start_row = 7
+            start_col = 39  # Column 'AM'
 
-    print(f"\nWriting {len(all_sheets_data)} sheets to '{filepath}'...")
-    with pd.ExcelWriter(filepath, engine='odf') as writer:
-        for sheet, data in all_sheets_data.items():
-            data.to_excel(writer, sheet_name=sheet, index=False)
+            for r_idx, row in enumerate(rows, start_row):
+                for c_idx, value in enumerate(row, start_col):
+                    sheet.cell(row=r_idx, column=c_idx, value=value)
 
-    print(f"Successfully saved the complete report to '{filepath}'.")
+            print(f"  -> Data written to sheet '{sheet_name}' starting at cell AM7.")
+
+    # --- Save the modified workbook to the output file ---
+    try:
+        # If the template sheet is no longer needed in the final output, you can remove it
+        # workbook.remove(template_sheet)
+        workbook.save(filepath)
+        print(f"\nSuccessfully saved the complete report to '{filepath}'.")
+    except Exception as e:
+        print(f"\nAn error occurred while saving the file: {e}")
 
 
 def split_string_by_pattern(data_string: str) -> list[list[int]]:
