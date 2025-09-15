@@ -14,6 +14,7 @@ import os
 import config
 import grade_generator as gg
 
+
 def main():
     """
     Iterates through all subjects and quarters defined in the config,

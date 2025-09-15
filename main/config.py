@@ -1,8 +1,8 @@
 ﻿settings: dict = {
     # --- Output Settings ---
     "output_dir": "reports",  # Folder to save the report in
-    "output_filename": "journals.ods",  # The name of the Excel file
-
+    "output_filename": "journals.xlsx",  # The name of the Excel file
+    "template_path": "template.xlsx",
     # --- Grading Bands ---
     "grade_bands": {
         2: (0, 39.99),
