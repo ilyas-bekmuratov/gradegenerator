@@ -73,4 +73,3 @@ def generate_plausible_grades(final_grade_mark, config):
         "Actual СОч %": round(actual_so4_contribution, 1),
         "Penalty/Bonus Applied": round(penalty_bonus, 1),
     }
-    # 
