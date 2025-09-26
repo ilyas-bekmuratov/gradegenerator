@@ -1,4 +1,5 @@
 import pandas as pd
+from class_class import Class
 
 
 def clean_grade(grade):
@@ -19,11 +20,11 @@ def clean_grade(grade):
         return '0'
 
 
-def process_sheet(xls, sheet_name):
+def process_class_sheet(xls, sheet_name):
     print(f"\n# --- Configuration for Class: {sheet_name} ---")
 
     # Read the sheet. We assume the headers are on the 2nd row (index 1).
-    df = pd.read_excel(xls, sheet_name=sheet_name, header=1)
+    df = pd.read_excel(xls, sheet_name=sheet_name, header=0)
 
     # --- Validate Sheet Structure ---
     # We expect at least 4 columns: Index, Name, Quarter, Subject1
@@ -45,6 +46,9 @@ def process_sheet(xls, sheet_name):
 
     # Get the unique list of students in their original order
     student_list = data_df[student_col_name].unique().tolist()
+
+    if student_list.count() == 0:
+        return
 
     print("\n# List of student names")
     # Printing with a placeholder variable name for easy copy-pasting
@@ -76,7 +80,7 @@ def process_sheet(xls, sheet_name):
     print("}")
 
 
-def extract_config_from_excel(filepath="reports/grades.xlsx"):
+def extract_grades_and_classes(filepath="reports/grades.xlsx"):
     """
     Reads an Excel file with student grades and prints a Python dictionary
     and list that can be used for the grade generator's config.
@@ -94,10 +98,45 @@ def extract_config_from_excel(filepath="reports/grades.xlsx"):
 
     # Process each sheet in the Excel file
     for sheet_name in xls.sheet_names:
-        process_sheet(xls, sheet_name)
+        process_class_sheet(xls, sheet_name)
+
+
+def process_subject_sheet(xls, sheet_name):
+    print(f"\n# --- Configuration for Class: {sheet_name} ---")
+
+    df = pd.read_excel(xls, sheet_name=sheet_name, header=1)
+
+    if len(df.columns) < 3:
+        print(f"# Skipping sheet '{sheet_name}' - it does not have the expected format.")
+        return
+
+    subject_names = df.columns[0]
+    teacher_names = df.columns[1]
+    hours_per_week = df.columns[2]
+
+    cl = Class(sheet_name, subject_names, teacher_names, hours_per_week)
+
+    for subject, teacher, hours in subject_names, teacher_names, hours_per_week:
+        print(subject)
+        print(teacher)
+        print(hours)
+
+
+def extract_subjects(filepath="reports/subjects.xlsx"):
+    try:
+        # Load the entire Excel file to access its sheets
+        xls = pd.ExcelFile(filepath)
+    except FileNotFoundError:
+        print(f"Error: The file '{filepath}' was not found.")
+        print("Please make sure the Excel file is in the same directory as this script.")
+        return
+
+    # Process each sheet in the Excel file
+    for sheet_name in xls.sheet_names:
+        process_subject_sheet(xls, sheet_name)
 
 
 if __name__ == "__main__":
     # You can specify a different filename here if needed
     # For example: extract_config_from_excel("my_other_grades.xlsx")
-    extract_config_from_excel("reports/grades.xlsx")
+    extract_subjects()
