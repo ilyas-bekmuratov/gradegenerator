@@ -15,24 +15,17 @@ import config
 import grade_generator as gg
 import openpyxl
 from openpyxl.utils.dataframe import dataframe_to_rows
+from class_class import Class, Subject
+import config_extractor
 
 
 def main():
-    """
-    Loads an existing report or creates a new one from a template.
-    Iterates through subjects, generates grades, and populates sheets
-    without deleting previously generated data.
-    """
-    settings = config.settings
-    subjects_data = settings['subjects']
+    all_classes = config_extractor.extract_all_data()
 
-    # --- File I/O setup ---
-    output_dir = settings['output_dir']
-    template_path = settings['template_path']
-    output_filename = os.path.splitext(settings['output_filename'])[0] + ".xlsx"
-    filepath = os.path.join(output_dir, output_filename)
+    output_filename = os.path.splitext(config.output_filename)[0] + ".xlsx"
+    filepath = os.path.join(config.output_dir, output_filename)
 
-    os.makedirs(output_dir, exist_ok=True)
+    os.makedirs(config.output_dir, exist_ok=True)
 
     # --- Load Workbook (existing or from template) ---
     workbook = None
@@ -41,29 +34,38 @@ def main():
             workbook = openpyxl.load_workbook(filepath)
             print(f"Successfully loaded existing report from '{filepath}'.")
         else:
-            workbook = openpyxl.load_workbook(template_path)
-            print(f"Creating new report from template '{template_path}'.")
+            workbook = openpyxl.load_workbook(config.template_path)
+            print(f"Creating new report from template '{config.template_path}'.")
     except FileNotFoundError:
-        print(f"Error: Template file not found at '{template_path}'.")
+        print(f"Error: Template file not found at '{config.template_path}'.")
         print("Please ensure your template file exists.")
         return
     except Exception as e:
         print(f"An error occurred while loading the workbook: {e}")
         return
 
-    # --- Get the template sheet to copy ---
-    template_sheet_name = settings.get('template_sheet_name', 'Sheet1')
-    if template_sheet_name not in workbook.sheetnames:
-        print(f"Error: Template sheet named '{template_sheet_name}' not found!")
-        print(f"Make sure a sheet with this name exists in '{template_path}' or '{filepath}'.")
-        return
-    template_sheet = workbook[template_sheet_name]
-    print(f"Using '{template_sheet.title}' as the master template sheet for copying.")
+    for current_class in all_classes:
+        process_class(workbook, current_class)
 
-    # --- Main Processing Loop ---
-    for subject_name, grades_string in subjects_data.items():
+    try:
+        workbook.save(filepath)
+        print(f"\nSuccessfully saved the complete report to '{filepath}'.")
+    except Exception as e:
+        print(f"\nAn error occurred while saving the file: {e}")
+
+
+def split_string_by_pattern(data_string: str, grades_per_student=7) -> list[list[int]]:
+    # Splits a string of grades into 7 lists for (Q1, Q2, Q3, Q4, Final, exam, total).
+    result_lists = [[], ...]
+    for index, char in enumerate(data_string):
+        result_lists[index % grades_per_student].append(int(char))
+    return result_lists
+
+
+def process_class(workbook, current_class: Class):
+    for subject_name, subject in current_class.subjects:
         print(f"\n--- Processing Subject: {subject_name} ---")
-        split_grades = split_string_by_pattern(grades_string)
+        split_grades = split_string_by_pattern(subject.grades)
 
         for i in range(4):
             quarter_num = i + 1
@@ -79,13 +81,13 @@ def main():
             for grade in quarter_grades:
                 if grade == 0:
                     blank_data = {
-                        "Input Grade": '', "СОр Scores (Midterms)": [''] * settings['num_midterms'],
+                        "Input Grade": '', "СОр Scores (Midterms)": [''] * config.num_midterms,
                         "СОч Score (Final)": '', "Adjusted СОр %": '', "Actual СОч %": '',
                         "Generated Total %": '',
                     }
                     results.append(blank_data)
-                elif grade in settings['grade_bands']:
-                    generated_data = gg.generate_plausible_grades(grade, config)
+                elif grade in config.grade_bands:
+                    generated_data = gg.generate_plausible_grades(grade, current_class, subject)
                     results.append(generated_data)
 
             if not results:
@@ -94,17 +96,15 @@ def main():
             # --- OUTPUT Formatting (DataFrame preparation) ---
             df = pd.DataFrame(results)
 
-            num_midterms = settings['num_midterms']
-            max_midterms = settings['max_midterms']
-            actual_midterm_cols = [f'СОр {j+1}' for j in range(num_midterms)]
+            actual_midterm_cols = [f'СОр {j+1}' for j in range(config.num_midterms)]
             midterm_df = pd.DataFrame(df['СОр Scores (Midterms)'].tolist(), columns=actual_midterm_cols, index=df.index)
-            template_midterm_cols = [f'СОр {j+1}' for j in range(max_midterms)]
+            template_midterm_cols = [f'СОр {j+1}' for j in range(config.max_midterms)]
             midterm_df = midterm_df.reindex(columns=template_midterm_cols)
 
             df = pd.concat([midterm_df, df.drop(columns=['СОр Scores (Midterms)'])], axis=1)
 
-            max_sop_weight = settings['weights']['sop']
-            max_so4_weight = settings['weights']['so4']
+            max_sop_weight = config.weights['sop']
+            max_so4_weight = config.weights['so4']
             final_df = df.rename(columns={
                 'СОч Score (Final)': 'Балл СО за четв.',
                 'Adjusted СОр %': f'% СОр (макс. {max_sop_weight}%)',
@@ -129,7 +129,7 @@ def main():
                 print(f"  -> Created sheet '{sheet_name}' by copying template.")
 
             # Write the subject name to its designated cell
-            [subject_name_row, subject_name_col] = settings['subject_name_cell']
+            [subject_name_row, subject_name_col] = config.subject_name_cell
             string_to_enter = f"Наименование предмета: {subject_name}"
             sheet.cell(row=subject_name_row, column=subject_name_col, value=string_to_enter)
 
@@ -144,33 +144,6 @@ def main():
 
             start_cell_addr = sheet.cell(row=start_row, column=start_col).coordinate
             print(f"  -> Data written to sheet '{sheet_name}' starting at cell {start_cell_addr}.")
-
-    # Save the modified workbook to the output file
-    try:
-        # Hide the template sheet before saving for a cleaner output file
-        if settings['template_sheet_name'] in workbook.sheetnames:
-            workbook[settings['template_sheet_name']].sheet_state = 'hidden'
-
-        workbook.save(filepath)
-        print(f"\nSuccessfully saved the complete report to '{filepath}'.")
-    except Exception as e:
-        print(f"\nAn error occurred while saving the file: {e}")
-
-
-def split_string_by_pattern(data_string: str) -> list[list[int]]:
-    # Splits a string of grades into 5 lists for (Q1, Q2, Q3, Q4, Final).
-    result_lists = [[], [], [], [], []]
-    for index, char in enumerate(data_string):
-        result_lists[index % 5].append(int(char))
-    return result_lists
-
-
-def split_string_by_pattern_special(data_string: str) -> list[list[int]]:
-    # Splits a string of grades into 7 lists for (Q1, Q2, Q3, Q4, Final).
-    result_lists = [[], [], [], [], [], [], []]
-    for index, char in enumerate(data_string):
-        result_lists[index % 7].append(int(char))
-    return result_lists
 
 
 if __name__ == "__main__":

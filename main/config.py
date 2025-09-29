@@ -1,85 +1,33 @@
-﻿settings: dict = {
-    # --- Output Settings ---
-    "output_dir": "reports",  # Folder to save the report in
-    "output_filename": "journals.xlsx",  # The name of the Excel file
-    "template_path": "reports/template.xlsx",
-    "template_sheet_name": "8F template",
-    "start_cell": [7, 39],
-    "subject_name_cell": [1, 2],
+﻿output_dir = "reports"
+output_filename = "journals.xlsx"
+template_path = "reports/templates.xlsx"
+grades_path = "reports/grades.xlsx"
+subjects_path = "reports/subjects.xlsx"
+kaz_topics_path = ""
+rus_topics_path = ""
 
-    # --- Grading Bands ---
-    "grade_bands": {
+subject_name_cell = [1, 2]
+grade_bands: {
         2: (0, 39.99),
         3: (40, 64.99),
         4: (65, 84.99),
         5: (85, 100),
-    },
+    }
 
-    # --- Generation Settings ---
-    "penalty_bonus_range": (-7.0, 7.0),
-    # For the total percentage within a grade band:
-    "total_percent_mean_offset": -2.0,  # Shifts the mean. E.g., -2.0 makes grades tend 2% lower in their band.
-    "total_percent_sd": 3.0,
-    # A smaller number (e.g., 3.0) makes scores more consistent. A larger number (e.g., 8.0) makes them more varied.
+weights = {'sop': 50, 'so4': 50}
+num_midterms = 3
+max_midterms = 4
+max_scores = [20, 20, 20, 20]
 
-    # For the split between midterm/final contribution:
-    "split_mean_offset": 0.0,
-    # A positive number makes the final exam (СОч) contribute more; negative for midterms (СОр).
-    "split_sd": 2.5,
-    # A smaller number (e.g., 2.0) makes the split very even. A larger number (e.g., 6.0) allows for very uneven splits.
+penalty_bonus_range = (-7.0, 7.0)
+total_percent_mean_offset = -2.0
+# Shifts the mean. E.g., -2.0 makes grades tend 2% lower in their band.
+total_percent_sd = 3.0  # (max_pct - min_pct) / 4
+# A smaller number (e.g., 3.0) makes scores more consistent.
+# A larger number (e.g., 8.0) makes them more varied.
 
-    # --- Exam Structure and Weighting ---
-    "weights": {'sop': 50, 'so4': 50},
-    "num_midterms": 3,
-    "max_midterms": 4,
-    # --- Maximum Scores for Each Exam ---
-    # List of max scores: one for each midterm, plus the last one for the final exam.
-    # The number of items must be num_midterms + 1.
-    "max_scores": [20, 20, 20, 20],
-
-    "subjects": {
-        "Иностранный язык (Английский)":
-            "555552233333444554453333333444445555544555555444445555544444555552244344444555554433422333334444444444444",
-        "Русский язык":
-            "444443344444444555553333344444444444444444444555555555544444555550033244555555554444433444444444444444444",
-        "Русская литература":
-            "554453344444444555553333344444444444444444444555554455544444555550033255555555554444433444444444444444555",
-        "Алгебра":
-            "443342233344444444442233333333443345544533333555554433433333555552233344444555553333322333333333333333444",
-        "Физика":
-            "443343333344444554453333344334444445555533333555554433433333555554433444444555554433433333443344433444444",
-        "Химия":
-            "444443322344444444442222244334443344455533333555554433433223555552233344334555553333333333333334433444444",
-        "Биология":
-            "444443333344334444443333344334444444444433333555554433433333555552233344444555553333322333334443344444444",
-        "История Казахстана":
-            "444442233344444554453333333333333334455533333444444455533444555550044244444555553344422333334443344444444",
-        "Геометрия": # copied grades from algebra
-            "443342233344444444442233333333443345544533333555554433433333555552233344444555553333322333333333333333444",
-    },
-
-    "special": {
-        "Казахский язык и литература":  # 3 + exam
-            "444444433333435555545555555533333333322333444444455445453333333334443444444444433444555555544444443333333555555544444443333343443343433333335555555",
-    },
-
-    "special2": {
-        "Информатика":  # 1 and no final but no grades
-            "444443333344444444443333344334444445544544334555554444444334555550044244444555553333333333444443344444444",
-        "Всемирная история":
-            "000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
-    },
-
-    "electives": {
-        "Engineering":  # 3
-            "555555533455445555554433455445555555544555445555555544555334555550044255555555555544555445554455544555555",
-        "Economics":
-            "000003322300000000000000000000000000000000000000000000000000000000000000000000000000000000333333333300000",
-        "Business":
-            "445550000000000445554455544555445550000044555000004455544555000002255400000000004455544555000000000044555",
-        "Math Cambridge":
-            "000000000055445000000000000000000005544500000555550000000000555550000000000555550000000000000000000000000",
-        "Environmental Science":
-            "000000000000000000000000000000000000000000000000000000000000000000000055555000000000000000000000000000000",
-    },
-}
+split_mean_offset = 0.0
+# A positive number makes the final exam (СОч) contribute more; negative for midterms (СОр).
+split_sd = 2.5  # default value = (max_so4_contrib - min_so4_contrib) / 4
+# A smaller number (e.g., 2.0) makes the split very even.
+# A larger number (e.g., 6.0) allows for very uneven splits.
