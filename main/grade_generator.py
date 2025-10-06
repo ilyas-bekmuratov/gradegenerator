@@ -4,9 +4,21 @@ import config
 from class_class import Class, Subject
 
 
-def generate_plausible_grades(final_grade_mark, current_class: Class, subject: Subject):
-    midterm_max_scores = config.max_scores[:config.num_midterms]
-    so4_max_score = config.max_scores[-1]
+def generate_plausible_grades(final_grade_mark, current_class: Class, subject: Subject, quarter_num: int):
+    # --- Create local copies of settings to modify them based on rules ---
+    local_num_midterms = config.num_midterms
+    local_weights = config.weights.copy()
+    local_max_scores = config.max_scores.copy()
+
+    # --- NEW: Special logic for 1-hour subjects ---
+    if subject.hours == 1:
+        local_num_midterms = 1  # Only 1 midterm
+        # No final exam (СОч) in Q1 and Q3
+        if quarter_num in [1, 3]:
+            local_weights['so4'] = 0
+
+    midterm_max_scores = local_max_scores[:local_num_midterms]
+    so4_max_score = local_max_scores[-1]
     total_max_midterm_score = sum(midterm_max_scores)
 
     # --- 1. Generate Total Percentage ---
@@ -22,18 +34,18 @@ def generate_plausible_grades(final_grade_mark, current_class: Class, subject: S
     # Initialize penalty/bonus
     penalty_bonus = np.random.uniform(config.penalty_bonus_range[0], config.penalty_bonus_range[1])
 
-    if config.weights.get('so4', 0) == 0:
+    if local_weights.get('so4', 0) == 0:
         # --- CASE: NO FINAL EXAM (СОч weight is 0) ---
-        adjusted_sop_contribution = np.clip(total_percent, 0, config.weights['sop'])
+        adjusted_sop_contribution = np.clip(total_percent, 0, local_weights['sop'])
         so4_score_rounded = '-'
         actual_so4_contribution = '-'
         raw_sop_contribution = adjusted_sop_contribution - penalty_bonus
-        raw_sop_contribution = np.clip(raw_sop_contribution, 0, config.weights['sop'])
+        raw_sop_contribution = np.clip(raw_sop_contribution, 0, local_weights['sop'])
 
     else:
         # --- CASE: FINAL EXAM EXISTS ---
-        min_so4_contrib = max(0, total_percent - config.weights['sop'])
-        max_so4_contrib = min(config.weights['so4'], total_percent)
+        min_so4_contrib = max(0, total_percent - local_weights['sop'])
+        max_so4_contrib = min(local_weights['so4'], total_percent)
 
         mean_split = (min_so4_contrib + max_so4_contrib) / 2
         mean_split += config.split_mean_offset
@@ -43,24 +55,24 @@ def generate_plausible_grades(final_grade_mark, current_class: Class, subject: S
         so4_percent_contribution = np.clip(so4_percent_contribution, min_so4_contrib, max_so4_contrib)
         sop_percent_contribution = total_percent - so4_percent_contribution
 
-        so4_score_float = (so4_percent_contribution / config.weights['so4']) * so4_max_score if config.weights['so4'] > 0 else 0
+        so4_score_float = (so4_percent_contribution / local_weights['so4']) * so4_max_score if local_weights['so4'] > 0 else 0
         so4_score_rounded = int(round(so4_score_float))
         so4_score_rounded = np.clip(so4_score_rounded, 0, so4_max_score)
-        actual_so4_contribution = (so4_score_rounded / so4_max_score) * config.weights['so4'] if so4_max_score > 0 else 0
+        actual_so4_contribution = (so4_score_rounded / so4_max_score) * local_weights['so4'] if so4_max_score > 0 else 0
 
         rounding_diff = so4_percent_contribution - actual_so4_contribution
         adjusted_sop_contribution = sop_percent_contribution + rounding_diff
-        adjusted_sop_contribution = np.clip(adjusted_sop_contribution, 0, config.weights['sop'])
+        adjusted_sop_contribution = np.clip(adjusted_sop_contribution, 0, local_weights['sop'])
 
         raw_sop_contribution = adjusted_sop_contribution - penalty_bonus
-        raw_sop_contribution = np.clip(raw_sop_contribution, 0, config.weights['sop'])
+        raw_sop_contribution = np.clip(raw_sop_contribution, 0, local_weights['sop'])
 
     # --- Generate Midterm (СОр) Scores ---
     target_sum = 0
-    if config.weights['sop'] > 0 and total_max_midterm_score > 0:
-        target_sum = int(round((raw_sop_contribution / config.weights['sop']) * total_max_midterm_score))
+    if local_weights['sop'] > 0 and total_max_midterm_score > 0:
+        target_sum = int(round((raw_sop_contribution / local_weights['sop']) * total_max_midterm_score))
 
-    midterm_scores = [0] * config.num_midterms
+    midterm_scores = [0] * local_num_midterms
     if target_sum > 0:
         for _ in range(target_sum):
             available_indices = [i for i, score in enumerate(midterm_scores) if score < midterm_max_scores[i]]
@@ -75,8 +87,13 @@ def generate_plausible_grades(final_grade_mark, current_class: Class, subject: S
         if isinstance(actual_so4_contribution, (int, float)) \
         else actual_so4_contribution
 
+    # For 1-hour subjects in Q1/Q3, there is no final grade
+    final_grade_output = final_grade_mark
+    if subject.hours == 1 and quarter_num in [1, 3]:
+        final_grade_output = ''
+
     return {
-        "Input Grade": final_grade_mark,
+        "Input Grade": final_grade_output,
         "Generated Total %": round(total_percent, 1),
         "СОч Score (Final)": so4_score_rounded,
         "СОр Scores (Midterms)": midterm_scores,

@@ -3,17 +3,20 @@ output_filename = "journals.xlsx"
 template_path = "reports/templates.xlsx"
 grades_path = "reports/grades.xlsx"
 subjects_path = "reports/subjects.xlsx"
-kaz_topics_path = ""
-rus_topics_path = ""
+kaz_topics_path = "1-11 Kaz - Copy"
+rus_topics_path = "1-11 Rus - Copy"
 
-grade_bands: {
+grade_bands = {
         2: (0, 39.99),
         3: (40, 64.99),
         4: (65, 84.99),
         5: (85, 100),
     }
 
-weights = {'sop': 50, 'so4': 50}
+weights = {
+    'sop': 50,
+    'so4': 50
+    }
 num_midterms = 3
 max_midterms = 4
 max_scores = [20, 20, 20, 20]
@@ -30,8 +33,16 @@ split_mean_offset = 0.0
 split_sd = 2.5  # default value = (max_so4_contrib - min_so4_contrib) / 4
 # A smaller number (e.g., 2.0) makes the split very even.
 # A larger number (e.g., 6.0) allows for very uneven splits.
-
+student_name_cell = [7, 2]
 subject_name_cell = [1, 2]
+template_sheet_names = [
+    "1ч1р", "2ч1р", "3ч1р", "4ч1р",
+    "1ч2р", "2ч2р", "3ч2р", "4ч2р",
+    "1ч3р", "2ч3р", "3ч3р", "4ч3р",
+    "1ч4р", "2ч4р", "3ч4р", "4ч4р",
+    "1ч5р", "2ч5р", "3ч5р", "4ч5р",
+    "1ч6р", "2ч6р", "3ч6р", "4ч6р",
+]
 # Format: hours: { quarter: (template_sheet_name, start_column_letter) }
 TEMPLATE_MAPPINGS = {
     1: {

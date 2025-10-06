@@ -3,16 +3,23 @@ from class_class import Class, Subject
 import config
 from typing import List, Dict, Optional
 from pathlib import Path
+import re
 
 
 def clean_grade(grade):
     """
     Cleans and standardizes a single grade value.
+    - Converts pass/fail words to a special integer '1'.
     - Converts numbers like 4.0 to '4'.
-    - Converts empty cells or non-numeric text (e.g., 'зачет') to '0'.
+    - Converts empty cells or other non-numeric text to '0'.
     """
     if pd.isna(grade) or str(grade).strip() == '':
         return '0'
+
+    grade_str = str(grade).strip().lower()
+    if grade_str in ["зачет", "зачёт", "сынақ", "есептелінді"]:
+        return '1'  # Use '1' as a special marker for pass/fail
+
     try:
         return str(int(float(grade)))
     except (ValueError, TypeError):
@@ -45,21 +52,21 @@ def process_class_sheet(
     for subject in subject_col_names:
         if 'Unnamed' in str(subject):
             continue
+
+        normalized_subject = str(subject).strip().lower()
         grade_series = data_df[subject]
         grade_string = "".join(grade_series.apply(clean_grade))
-        subjects_grades_dict[subject] = grade_string
+        subjects_grades_dict[normalized_subject] = grade_string
 
     clean_class = Class(sheet_name, student_list)
-    clean_class.is_kz = any(sheet_name.endswith(c) for c in ('A', 'a'))
 
-    # Determine which subject template to use
+    clean_class.is_kz = any(sheet_name.endswith(c) for c in ('A', 'a', '8B', '8b'))
+
     subject_template_key = sheet_name
     if not clean_class.is_kz:
-        # russian classes have no letter in templates (e.g., 8 instead of 8B)
         subject_template_key = sheet_name[:-1]
 
     if subject_template_key in all_subjects_dict:
-        # Create a deep copy to avoid modifying the original template
         clean_class.subjects = {name: Subject(s.name, s.teacher, s.hours) for name, s in all_subjects_dict[subject_template_key].items()}
     else:
         print(f"# WARNING: No subject template found for key '{subject_template_key}'. Class '{sheet_name}' will have no subjects.")
@@ -123,14 +130,16 @@ def process_subject_sheet(xls, sheet_name) -> Optional[Dict[str, Subject]]:
 
     for subject_name, teacher, hours in zip(subjects_list, teachers_list, hours_list):
         if pd.isna(subject_name):
-            continue  # Skip empty rows
+            continue
         try:
             num_hours = int(hours) if not pd.isna(hours) else 0
         except (ValueError, TypeError):
             num_hours = 0
 
+        normalized_name = str(subject_name).strip().lower()
+
         subject = Subject(
-            name=str(subject_name),
+            name=normalized_name,
             teacher=str(teacher),
             hours=num_hours
         )
@@ -140,9 +149,10 @@ def process_subject_sheet(xls, sheet_name) -> Optional[Dict[str, Subject]]:
     return subjects_in_class
 
 
+# --- MODIFIED: Updated function to use filenames and aggregate all sheets ---
 def extract_topics_and_hw(
         all_class_subjects_dict: Dict[str, Dict[str, Subject]],
-        is_kaz
+        is_kaz: bool
 ):
     folder_path_str = config.kaz_topics_path if is_kaz else config.rus_topics_path
     if not folder_path_str:
@@ -153,50 +163,68 @@ def extract_topics_and_hw(
         print(f"Error: The folder '{folder_path_str}' was not found.")
         return
 
+    print(f"\n--- Extracting topics/homework from {folder_path_str} ---")
     for file_path in path.glob('*.xlsx'):
-
-        class_name = file_path.name[:2]
-        if is_kaz:
-            class_name = class_name + "A"  # e.g., "10A"
-
-        subjects_for_this_class = all_class_subjects_dict.get(class_name)
-        if not subjects_for_this_class:
-            print(f"# WARNING: Class '{class_name}' not found for topics file '{file_path.name}'. Skipping.")
-            continue
-
         try:
+            filename_stem = file_path.stem  # e.g., "5 Алгебра"
+
+            # --- 1. Extract subject and class number from filename ---
+            match = re.match(r'^(\d+)\s+(.+)', filename_stem)
+            if not match:
+                print(f"# WARNING: Skipping topics file with unexpected name format: '{file_path.name}'")
+                continue
+
+            class_num_str, subject_from_filename = match.groups()
+            normalized_subject_name = subject_from_filename.strip().lower()
+
+            # --- 2. Find the correct class dictionary to add topics to ---
+            subjects_for_this_class = None
+            target_class_name = None
+
+            # Find a class that starts with the number and matches the language context (Kaz/Rus)
+            for class_name_key, subject_dict in all_class_subjects_dict.items():
+                if class_name_key.startswith(class_num_str):
+                    is_class_key_kaz = any(class_name_key.endswith(c) for c in ('A', 'a', '8B', '8b'))
+
+                    if (is_kaz and is_class_key_kaz) or (not is_kaz and not is_class_key_kaz):
+                        subjects_for_this_class = subject_dict
+                        target_class_name = class_name_key
+                        break
+
+            if not subjects_for_this_class:
+                print(f"# WARNING: Could not find a matching class for topics file '{file_path.name}'. Skipping.")
+                continue
+
+            # --- 3. Find the subject object within that class ---
+            subject_obj = subjects_for_this_class.get(normalized_subject_name)
+            if not subject_obj:
+                print(f"# WARNING: Subject '{normalized_subject_name}' from file not found for class '{target_class_name}'. Skipping.")
+                continue
+
+            # --- 4. Aggregate topics and homework from ALL sheets in the file ---
             xls = pd.ExcelFile(file_path)
+            all_topics = []
+            all_homework = []
             for sheet_name in xls.sheet_names:
-                add_topics_and_hw(xls, sheet_name, subjects_for_this_class)
-            print(f"  -> Successfully processed {len(xls.sheet_names)} subjects for class '{class_name}'.")
+                df = pd.read_excel(xls, sheet_name=sheet_name, header=0)
+                if len(df.columns) < 1:
+                    continue  # Skip empty sheets
+
+                all_topics.extend(df.iloc[:, 0].dropna().astype(str).tolist())
+                if len(df.columns) > 1:
+                    all_homework.extend(df.iloc[:, 1].dropna().astype(str).tolist())
+
+            subject_obj.topics = all_topics
+            subject_obj.homework = all_homework
+            print(f"  -> Associated {len(all_topics)} topics and {len(all_homework)} homeworks with '{normalized_subject_name}' for class '{target_class_name}'.")
+
         except Exception as e:
             print(f"# ERROR: Could not process file '{file_path.name}'. Reason: {e}")
 
 
-def add_topics_and_hw(
-        xls,
-        sheet_name,
-        subjects_in_class: Dict[str, Subject]
-):
-    df = pd.read_excel(xls, sheet_name=sheet_name, header=0)
-    if len(df.columns) < 2:
-        print(f"# WARNING: Skipping subject sheet '{sheet_name}'. It has fewer than 2 columns.")
-        return
-
-    topics: List[str] = [str(item) for item in df.iloc[:, 0].dropna().tolist()]
-    homework: List[str] = [str(item) for item in df.iloc[:, 1].dropna().tolist()]
-
-    subject_obj = subjects_in_class.get(sheet_name)
-    if subject_obj:
-        subject_obj.topics = topics
-        subject_obj.homework = homework
-    else:
-        print(f"# ERROR: Could not find a subject named '{sheet_name}' for this class.")
-
-
 def extract_all_data():
     subjects_per_class = extract_subjects()
-    extract_topics_and_hw(subjects_per_class, True)
-    extract_topics_and_hw(subjects_per_class, False)
+    extract_topics_and_hw(subjects_per_class, True)  # Process Kazakh topics
+    extract_topics_and_hw(subjects_per_class, False)  # Process Russian topics
     classes = extract_grades_and_classes(subjects_per_class)
     return classes
