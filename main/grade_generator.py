@@ -4,7 +4,7 @@ import config
 from class_class import Class, Subject
 
 
-def generate_plausible_grades(final_grade_mark):
+def generate_plausible_grades(final_grade_mark, current_class: Class, subject: Subject):
     midterm_max_scores = config.max_scores[:config.num_midterms]
     so4_max_score = config.max_scores[-1]
     total_max_midterm_score = sum(midterm_max_scores)
@@ -22,25 +22,16 @@ def generate_plausible_grades(final_grade_mark):
     # Initialize penalty/bonus
     penalty_bonus = np.random.uniform(config.penalty_bonus_range[0], config.penalty_bonus_range[1])
 
-    # ### MODIFIED ### - Check if there is a final exam based on weight
     if config.weights.get('so4', 0) == 0:
         # --- CASE: NO FINAL EXAM (СОч weight is 0) ---
-
-        # 2. No split needed; all percentage goes to midterms (СОр)
         adjusted_sop_contribution = np.clip(total_percent, 0, config.weights['sop'])
-
-        # 3. Set final exam (СОч) scores to a placeholder
         so4_score_rounded = '-'
         actual_so4_contribution = '-'
-
-        # 4. Apply Inverse Penalty/Bonus to midterms
         raw_sop_contribution = adjusted_sop_contribution - penalty_bonus
         raw_sop_contribution = np.clip(raw_sop_contribution, 0, config.weights['sop'])
 
     else:
-        # --- CASE: FINAL EXAM EXISTS (Original Logic) ---
-
-        # 2. Split Total Percentage
+        # --- CASE: FINAL EXAM EXISTS ---
         min_so4_contrib = max(0, total_percent - config.weights['sop'])
         max_so4_contrib = min(config.weights['so4'], total_percent)
 
@@ -52,22 +43,19 @@ def generate_plausible_grades(final_grade_mark):
         so4_percent_contribution = np.clip(so4_percent_contribution, min_so4_contrib, max_so4_contrib)
         sop_percent_contribution = total_percent - so4_percent_contribution
 
-        # 3. Calculate Final Exam Score (СОч)
         so4_score_float = (so4_percent_contribution / config.weights['so4']) * so4_max_score if config.weights['so4'] > 0 else 0
         so4_score_rounded = int(round(so4_score_float))
         so4_score_rounded = np.clip(so4_score_rounded, 0, so4_max_score)
         actual_so4_contribution = (so4_score_rounded / so4_max_score) * config.weights['so4'] if so4_max_score > 0 else 0
 
-        # 4. Adjust Midterm (СОр) Contribution
         rounding_diff = so4_percent_contribution - actual_so4_contribution
-        adjusted_sop_contribution = (sop_percent_contribution + rounding_diff)
+        adjusted_sop_contribution = sop_percent_contribution + rounding_diff
         adjusted_sop_contribution = np.clip(adjusted_sop_contribution, 0, config.weights['sop'])
 
-        # 5. Apply Inverse Penalty/Bonus
         raw_sop_contribution = adjusted_sop_contribution - penalty_bonus
         raw_sop_contribution = np.clip(raw_sop_contribution, 0, config.weights['sop'])
 
-    # --- 6. Generate Midterm (СОр) Scores (Common for both cases) ---
+    # --- Generate Midterm (СОр) Scores ---
     target_sum = 0
     if config.weights['sop'] > 0 and total_max_midterm_score > 0:
         target_sum = int(round((raw_sop_contribution / config.weights['sop']) * total_max_midterm_score))
@@ -81,7 +69,7 @@ def generate_plausible_grades(final_grade_mark):
             chosen_index = random.choice(available_indices)
             midterm_scores[chosen_index] += 1
 
-    # --- 7. Safely format numbers for the return dictionary ---
+    # --- Format numbers for the return dictionary ---
     final_sop_percent = round(adjusted_sop_contribution, 1)
     final_so4_percent = round(actual_so4_contribution, 1) \
         if isinstance(actual_so4_contribution, (int, float)) \
