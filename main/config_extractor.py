@@ -67,7 +67,7 @@ def process_class_sheet(
         subject_template_key = sheet_name[:-1]
 
     if subject_template_key in all_subjects_dict:
-        clean_class.subjects = {name: Subject(s.name, s.teacher, s.hours) for name, s in all_subjects_dict[subject_template_key].items()}
+        clean_class.subjects = all_subjects_dict[subject_template_key].copy()
     else:
         print(f"# WARNING: No subject template found for key '{subject_template_key}'. Class '{sheet_name}' will have no subjects.")
         return clean_class
@@ -106,9 +106,9 @@ def extract_subjects(filepath=config.subjects_path) -> Dict[str, Dict[str, Subje
     except FileNotFoundError:
         print(f"Error: The file '{filepath}' was not found.")
         return all_class_subjects
+    print(f"\n--- Processing Class Sheets ---")
     for sheet_name in xls.sheet_names:
         try:
-            print(f"\n--- Processing Class Sheet: {sheet_name} ---")
             subjects_in_class = process_subject_sheet(xls, sheet_name)
             if subjects_in_class:
                 all_class_subjects[sheet_name] = subjects_in_class
@@ -145,11 +145,11 @@ def process_subject_sheet(xls, sheet_name) -> Optional[Dict[str, Subject]]:
         )
         subjects_in_class[subject.name] = subject
 
-    print(f"  -> Successfully created object for '{sheet_name}' with {len(subjects_in_class)} subjects.")
+    print(f"  -> Successfully created subject list for '{sheet_name}' with {len(subjects_in_class)} subjects.")
     return subjects_in_class
 
 
-# --- MODIFIED: Updated function to use filenames and aggregate all sheets ---
+# --- Updated function to use filenames and aggregate all sheets ---
 def extract_topics_and_hw(
         all_class_subjects_dict: Dict[str, Dict[str, Subject]],
         is_kaz: bool
@@ -216,7 +216,7 @@ def extract_topics_and_hw(
 
             subject_obj.topics = all_topics
             subject_obj.homework = all_homework
-            print(f"  -> Associated {len(all_topics)} topics and {len(all_homework)} homeworks with '{normalized_subject_name}' for class '{target_class_name}'.")
+            print(f"  -> class '{target_class_name}':'{normalized_subject_name}': {len(all_topics)} topics and {len(all_homework)} homeworks.")
 
         except Exception as e:
             print(f"# ERROR: Could not process file '{file_path.name}'. Reason: {e}")

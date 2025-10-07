@@ -230,41 +230,22 @@ def quarter(workbook, current_class: Class, quarter_num, subject_name, subject, 
 
 
 def get_quarter_start_index(quarter_num, subject_hours):
-    index = 0
-    if quarter_num == 2:
-        template_info = config.TEMPLATE_MAPPINGS.get(subject_hours, {}).get(1)
-        template_sheet_name, start_col_letter = template_info
-        start_col = column_index_from_string(start_col_letter)
-        available_cols = list(range(config.daily_grades_start_col, start_col))
-        index = len(available_cols)
-    if quarter_num == 3:
-        template_info = config.TEMPLATE_MAPPINGS.get(subject_hours, {}).get(1)
-        template_sheet_name, start_col_letter = template_info
-        start_col = column_index_from_string(start_col_letter)
-        available_cols = list(range(config.daily_grades_start_col, start_col))
-        index = len(available_cols)
-        template_info = config.TEMPLATE_MAPPINGS.get(subject_hours, {}).get(2)
-        template_sheet_name, start_col_letter = template_info
-        start_col = column_index_from_string(start_col_letter)
-        available_cols = list(range(config.daily_grades_start_col, start_col))
-        index += len(available_cols)
-    if quarter_num == 4:
-        template_info = config.TEMPLATE_MAPPINGS.get(subject_hours, {}).get(1)
-        template_sheet_name, start_col_letter = template_info
-        start_col = column_index_from_string(start_col_letter)
-        available_cols = list(range(config.daily_grades_start_col, start_col))
-        index = len(available_cols)
-        template_info = config.TEMPLATE_MAPPINGS.get(subject_hours, {}).get(2)
-        template_sheet_name, start_col_letter = template_info
-        start_col = column_index_from_string(start_col_letter)
-        available_cols = list(range(config.daily_grades_start_col, start_col))
-        index += len(available_cols)
-        template_info = config.TEMPLATE_MAPPINGS.get(subject_hours, {}).get(3)
-        template_sheet_name, start_col_letter = template_info
-        start_col = column_index_from_string(start_col_letter)
-        available_cols = list(range(config.daily_grades_start_col, start_col))
-        index += len(available_cols)
-    return index
+    """Calculates the starting index for topics/homework for a given quarter."""
+    if quarter_num == 1:
+        return 0
+
+    total_offset = 0
+    # Sum the number of available columns for all preceding quarters
+    for q in range(1, quarter_num):
+        template_info = config.TEMPLATE_MAPPINGS.get(subject_hours, {}).get(q)
+        if template_info:
+            _template_sheet_name, start_col_letter = template_info
+            start_col = column_index_from_string(start_col_letter)
+            # Calculate how many columns were available for daily grades in that quarter
+            available_cols_in_quarter = start_col - config.daily_grades_start_col
+            if available_cols_in_quarter > 0:
+                total_offset += available_cols_in_quarter
+    return total_offset
 
 
 if __name__ == "__main__":

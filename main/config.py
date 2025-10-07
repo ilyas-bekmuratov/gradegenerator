@@ -51,7 +51,7 @@ template_sheet_names = [
     "1ч6р", "2ч6р", "3ч6р", "4ч6р",
 ]
 start_row = 7
-topics_start_after = 10
+topics_start_after = 10  # offset after starting column
 # Format: hours: { quarter: (template_sheet_name, start_column_letter) }
 TEMPLATE_MAPPINGS = {
     1: {
@@ -86,11 +86,11 @@ def get_daily_grade_distribution(bonus):
     # Create a weighted distribution for more realistic grades
     # The primary grade is highly likely, with a small chance of an adjacent grade
     if primary_grade == 5:
-        return {5: 0.85, 4: 0.15}  # Mostly 5s, some 4s
+        return {10: 0.75, 9: 0.1, 8: 0.06, 7: 0.04, 6: 0.04, 5: 0.007, 4: 0.003}  # Mostly 5s, some 4s
     if primary_grade == 4:
-        return {5: 0.25, 4: 0.65, 3: 0.1}
+        return {10: 0.05, 9: 0.1, 8: 0.65, 7: 0.1, 6: 0.05, 5: 0.044, 4: 0.005, 3: 0.001}
     if primary_grade == 3:
-        return {5: 0.1, 4: 0.3, 3: 0.5, 2: 0.1}
+        return {10: 0.01, 9: 0.015, 8: 0.025, 7: 0.05, 6: 0.1, 5: 0.65, 4: 0.1, 3: 0.045, 2: 0.005}
     if primary_grade == 2:
-        return {5: 0.1, 4: 0.15, 3: 0.25, 2: 0.5}
-    return {4: 1.0}  # Default case
+        return {10: 0.002, 9: 0.003, 8: 0.005, 7: 0.015, 6: 0.25, 5: 0.05, 4: 0.1, 3: 0.65, 2: 0.1}
+    return {10: 0.05, 9: 0.1, 8: 0.65, 7: 0.1, 6: 0.05, 5: 0.044, 4: 0.005, 3: 0.001}  # Default case same as 4
