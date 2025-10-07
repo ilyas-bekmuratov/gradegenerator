@@ -12,7 +12,14 @@ grade_bands = {
         4: (65, 84.99),
         5: (85, 100),
     }
-
+DAILY_GRADE_BANDS = {
+    2: (-3.0, -2.0),
+    3: (-2.0, 0.0),
+    4: (0.0, 4.0),
+    5: (4.0, 7.0)
+}
+daily_grades_start_col = 4  # Column D
+daily_grade_density = 0.66
 weights = {
     'sop': 50,
     'so4': 50
@@ -21,7 +28,7 @@ num_midterms = 3
 max_midterms = 4
 max_scores = [20, 20, 20, 20]
 
-penalty_bonus_range = (-7.0, 7.0)
+penalty_bonus_range = (-3.0, 7.0)
 total_percent_mean_offset = -2.0
 # Shifts the mean. E.g., -2.0 makes grades tend 2% lower in their band.
 total_percent_sd = 3.0  # (max_pct - min_pct) / 4
@@ -43,6 +50,8 @@ template_sheet_names = [
     "1ч5р", "2ч5р", "3ч5р", "4ч5р",
     "1ч6р", "2ч6р", "3ч6р", "4ч6р",
 ]
+start_row = 7
+topics_start_after = 10
 # Format: hours: { quarter: (template_sheet_name, start_column_letter) }
 TEMPLATE_MAPPINGS = {
     1: {
@@ -64,3 +73,24 @@ TEMPLATE_MAPPINGS = {
         1: ("1ч6р", "AW"), 2: ("2ч6р", "AV"), 3: ("3ч6р", "BI"), 4: ("4ч6р", "AQ"),
     },
 }
+
+
+def get_daily_grade_distribution(bonus):
+    """Determines the primary daily grade and a secondary grade based on the bonus."""
+    primary_grade = 4  # Default grade
+    for grade, (min_bonus, max_bonus) in DAILY_GRADE_BANDS.items():
+        if min_bonus <= bonus < max_bonus:
+            primary_grade = grade
+            break
+
+    # Create a weighted distribution for more realistic grades
+    # The primary grade is highly likely, with a small chance of an adjacent grade
+    if primary_grade == 5:
+        return {5: 0.85, 4: 0.15}  # Mostly 5s, some 4s
+    if primary_grade == 4:
+        return {5: 0.25, 4: 0.65, 3: 0.1}
+    if primary_grade == 3:
+        return {5: 0.1, 4: 0.3, 3: 0.5, 2: 0.1}
+    if primary_grade == 2:
+        return {5: 0.1, 4: 0.15, 3: 0.25, 2: 0.5}
+    return {4: 1.0}  # Default case

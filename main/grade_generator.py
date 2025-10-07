@@ -10,7 +10,6 @@ def generate_plausible_grades(final_grade_mark, current_class: Class, subject: S
     local_weights = config.weights.copy()
     local_max_scores = config.max_scores.copy()
 
-    # --- NEW: Special logic for 1-hour subjects ---
     if subject.hours == 1:
         local_num_midterms = 1  # Only 1 midterm
         # No final exam (СОч) in Q1 and Q3
@@ -87,7 +86,6 @@ def generate_plausible_grades(final_grade_mark, current_class: Class, subject: S
         if isinstance(actual_so4_contribution, (int, float)) \
         else actual_so4_contribution
 
-    # For 1-hour subjects in Q1/Q3, there is no final grade
     final_grade_output = final_grade_mark
     if subject.hours == 1 and quarter_num in [1, 3]:
         final_grade_output = ''
@@ -99,5 +97,5 @@ def generate_plausible_grades(final_grade_mark, current_class: Class, subject: S
         "СОр Scores (Midterms)": midterm_scores,
         "Adjusted СОр %": final_sop_percent,
         "Actual СОч %": final_so4_percent,
-        "Penalty/Bonus Applied": round(penalty_bonus, 1),
+        "Penalty/Bonus Applied": penalty_bonus,
     }
