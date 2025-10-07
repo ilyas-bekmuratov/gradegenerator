@@ -14,6 +14,7 @@ import os
 import config
 import grade_generator as gg
 import openpyxl
+from openpyxl.utils.dataframe import dataframe_to_rows
 from openpyxl.utils import column_index_from_string
 from class_class import Class
 import config_extractor
@@ -89,7 +90,6 @@ def process_class(workbook, current_class: Class):
 
 
 def split_string_by_pattern(data_string: str, grades_per_student=7) -> list[list[int]]:
-    # Splits a string of grades into 7 lists for (Q1, Q2, Q3, Q4, Final, exam, total).
     result_lists = [[] for _ in range(grades_per_student)]
     for index, char in enumerate(data_string):
         result_lists[index % grades_per_student].append(int(char))
@@ -103,7 +103,7 @@ def quarter(workbook, current_class: Class, quarter_num, subject_name, subject, 
     short_subject_name = subject_name[:max_subject_len] if len(subject_name) > max_subject_len else subject_name
     output_sheet_name = f"{class_name} - {short_subject_name} - Q{quarter_num}"
 
-    quarter_grades = split_grades[quarter_num-1]
+    quarter_grades = split_grades[quarter_num - 1]
 
     subject_hours = subject.hours
     template_info = config.TEMPLATE_MAPPINGS.get(subject_hours, {}).get(quarter_num)
@@ -185,13 +185,17 @@ def quarter(workbook, current_class: Class, quarter_num, subject_name, subject, 
     [student_start_row, student_start_col] = config.student_name_cell
     for idx, student_name in enumerate(current_class.students):
         sheet.cell(row=student_start_row + idx, column=student_start_col, value=student_name)
-    print(f"  -> Wrote {len(current_class.students)} student names to the sheet.")
 
     [subject_name_row, subject_name_col] = config.subject_name_cell
     sheet.cell(row=subject_name_row, column=subject_name_col, value=f"Наименование предмета: {subject_name.capitalize()}")
 
+    rows = dataframe_to_rows(final_df, index=False, header=False)
+    for r_idx, row_data in enumerate(rows, config.start_row):
+        for c_idx, value in enumerate(row_data, start_col):
+            sheet.cell(row=r_idx, column=c_idx, value=value if not pd.isna(value) else None)
+    print(f"  -> Wrote main grade data for {len(final_df)} students.")
+
     # --- Daily Grade Generation Logic ---
-    print("  -> Generating and placing daily grades...")
     available_cols = list(range(config.daily_grades_start_col, start_col))
 
     if available_cols:
@@ -205,25 +209,62 @@ def quarter(workbook, current_class: Class, quarter_num, subject_name, subject, 
 
             distribution = config.get_daily_grade_distribution(bonus)
             grades, weights = zip(*distribution.items())
-
             cols_to_fill = random.sample(available_cols, num_grades_to_place)
 
             for col in cols_to_fill:
-                # Choose a grade based on the weighted distribution
                 generated_grade = random.choices(grades, weights=weights, k=1)[0]
                 sheet.cell(row=student_row, column=col, value=generated_grade)
 
         # --- Topic and Homework Distribution Logic ---
         print("  -> Placing topics and homework...")
-        topics_start = start_col + config.topics_start_after
-        quarter_topics = subject.topics[topics_start:topics_start+len(available_cols)]
-        quarter_hw = subject.homework[topics_start:topics_start+len(available_cols)]
+        topics_start_col = start_col + config.topics_start_after
+        quarter_start_index = get_quarter_start_index(quarter_num, subject_hours)
+        quarter_topics = subject.topics[quarter_start_index:quarter_start_index+len(available_cols)]
+        quarter_hw = subject.homework[quarter_start_index:quarter_start_index+len(available_cols)]
 
         for idx, topic in enumerate(quarter_topics):
-            sheet.cell(row=config.start_row + idx, column=topics_start, value=topic)
+            sheet.cell(row=config.start_row + idx, column=topics_start_col, value=topic)
 
         for idx, hw in enumerate(quarter_hw):
-            sheet.cell(row=config.start_row + idx, column=topics_start+1, value=hw)
+            sheet.cell(row=config.start_row + idx, column=topics_start_col+1, value=hw)
+
+
+def get_quarter_start_index(quarter_num, subject_hours):
+    index = 0
+    if quarter_num == 2:
+        template_info = config.TEMPLATE_MAPPINGS.get(subject_hours, {}).get(1)
+        template_sheet_name, start_col_letter = template_info
+        start_col = column_index_from_string(start_col_letter)
+        available_cols = list(range(config.daily_grades_start_col, start_col))
+        index = len(available_cols)
+    if quarter_num == 3:
+        template_info = config.TEMPLATE_MAPPINGS.get(subject_hours, {}).get(1)
+        template_sheet_name, start_col_letter = template_info
+        start_col = column_index_from_string(start_col_letter)
+        available_cols = list(range(config.daily_grades_start_col, start_col))
+        index = len(available_cols)
+        template_info = config.TEMPLATE_MAPPINGS.get(subject_hours, {}).get(2)
+        template_sheet_name, start_col_letter = template_info
+        start_col = column_index_from_string(start_col_letter)
+        available_cols = list(range(config.daily_grades_start_col, start_col))
+        index += len(available_cols)
+    if quarter_num == 4:
+        template_info = config.TEMPLATE_MAPPINGS.get(subject_hours, {}).get(1)
+        template_sheet_name, start_col_letter = template_info
+        start_col = column_index_from_string(start_col_letter)
+        available_cols = list(range(config.daily_grades_start_col, start_col))
+        index = len(available_cols)
+        template_info = config.TEMPLATE_MAPPINGS.get(subject_hours, {}).get(2)
+        template_sheet_name, start_col_letter = template_info
+        start_col = column_index_from_string(start_col_letter)
+        available_cols = list(range(config.daily_grades_start_col, start_col))
+        index += len(available_cols)
+        template_info = config.TEMPLATE_MAPPINGS.get(subject_hours, {}).get(3)
+        template_sheet_name, start_col_letter = template_info
+        start_col = column_index_from_string(start_col_letter)
+        available_cols = list(range(config.daily_grades_start_col, start_col))
+        index += len(available_cols)
+    return index
 
 
 if __name__ == "__main__":
