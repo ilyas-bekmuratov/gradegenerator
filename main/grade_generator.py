@@ -1,7 +1,7 @@
 ﻿import numpy as np
 import random
 import config
-from class_class import Class, Subject
+from classes import Class, Subject
 
 
 def generate_plausible_grades(final_grade_mark, current_class: Class, subject: Subject, quarter_num: int):

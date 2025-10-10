@@ -47,6 +47,7 @@ split_sd = 2.5  # default value = (max_so4_contrib - min_so4_contrib) / 4
 subject_teacher_cell = [1, 2]  # B1
 student_name_cell = [7, 2]
 start_row = 7
+max_row = 42
 daily_grade_col = "C"
 quarter_grade_col = "D"
 year_grade_col = "M"

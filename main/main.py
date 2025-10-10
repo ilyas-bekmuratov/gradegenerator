@@ -16,15 +16,26 @@ import grade_generator as gg
 import openpyxl
 from openpyxl.utils.dataframe import dataframe_to_rows
 from openpyxl.utils import column_index_from_string
-from class_class import Class
-import config_extractor
+from classes import Class
+import class_extractor
+import topic_extractor
+import timetable_extractor
 import re
 from collections import defaultdict
 import random
+import helper
+
+
+def extract_all_data():
+    subjects_per_class = topic_extractor.extract_subjects()
+    topic_extractor.extract_topics_and_hw(subjects_per_class, True)  # Process Kazakh topics
+    topic_extractor.extract_topics_and_hw(subjects_per_class, False)  # Process Russian topics
+    classes = class_extractor.extract_grades_and_classes(subjects_per_class)
+    return classes
 
 
 def main():
-    all_classes = config_extractor.extract_all_data()
+    all_classes = extract_all_data()
     # --- Group classes by parallel (grade level) ---
     grouped_classes = defaultdict(list)
     for class_name, class_obj in all_classes.items():
@@ -82,18 +93,11 @@ def process_class(workbook, current_class: Class):
         class_number = int(class_number_str)
 
         split = 7 if class_number >= 5 else 5
-        split_grades = split_string_by_pattern(subject.grades, split)
+        split_grades = helper.split_string_by_pattern(subject.grades, split)
 
         for i in range(4):
             quarter_num = i + 1
             quarter(workbook, current_class, quarter_num, subject_name, subject, split_grades)
-
-
-def split_string_by_pattern(data_string: str, grades_per_student=7) -> list[list[int]]:
-    result_lists = [[] for _ in range(grades_per_student)]
-    for index, char in enumerate(data_string):
-        result_lists[index % grades_per_student].append(int(char))
-    return result_lists
 
 
 def quarter(workbook, current_class: Class, quarter_num, subject_name, subject, split_grades):
@@ -227,25 +231,6 @@ def quarter(workbook, current_class: Class, quarter_num, subject_name, subject, 
 
         for idx, hw in enumerate(quarter_hw):
             sheet.cell(row=config.start_row + idx, column=topics_start_col+1, value=hw)
-
-
-def get_quarter_start_index(quarter_num, subject_hours):
-    """Calculates the starting index for topics/homework for a given quarter."""
-    if quarter_num == 1:
-        return 0
-
-    total_offset = 0
-    # Sum the number of available columns for all preceding quarters
-    for q in range(1, quarter_num):
-        template_info = config.TEMPLATE_MAPPINGS.get(subject_hours, {}).get(q)
-        if template_info:
-            _template_sheet_name, start_col_letter = template_info
-            start_col = column_index_from_string(start_col_letter)
-            # Calculate how many columns were available for daily grades in that quarter
-            available_cols_in_quarter = start_col - config.daily_grades_start_col
-            if available_cols_in_quarter > 0:
-                total_offset += available_cols_in_quarter
-    return total_offset
 
 
 if __name__ == "__main__":
