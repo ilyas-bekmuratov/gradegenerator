@@ -21,10 +21,10 @@ class Subject:
 
 
 class Class:
-    def __init__(self, name: str, students: List[str],):
+    def __init__(self, name: str, subjects: Dict[str, Subject]):
         self.name = name
-        self.subjects: Dict[str, Subject] = {}
-        self.students = students
+        self.subjects: Dict[str, Subject] = subjects
+        self.students: List[str] = []
 
         self.is_kz = False  # by default
 

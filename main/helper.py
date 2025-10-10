@@ -1,4 +1,6 @@
 ﻿import pandas as pd
+from classes import Subject
+from typing import Dict, List
 
 
 def split_string_by_pattern(data_string: str, grades_per_student=7) -> list[list[int]]:
@@ -26,3 +28,15 @@ def clean_grade(grade):
         return str(int(float(grade)))
     except (ValueError, TypeError):
         return '0'
+
+
+def get_hours_this_quarter(subject: Subject, quarter_num: int, all_days_in_quarters: Dict[int, List[str]]) -> int:
+    return 1
+
+
+def get_days_this_quarter(subject: Subject, quarter_num: int, all_days_in_quarters: Dict[int, List[str]]) -> List[str]:
+    return ["11/11/23"]
+
+
+def get_quarter_start_index(subject: Subject, quarter_num: int, total_hours_this_quarter: int) -> int:
+    return 1

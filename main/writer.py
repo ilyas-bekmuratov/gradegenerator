@@ -3,28 +3,14 @@ from openpyxl.utils import get_column_letter, column_index_from_string
 import config
 from copy import copy
 
-OUTPUT_FILE = 'copied.xlsx'
-total_columns = 25
 
-
-def replicate_formatted_column(source_file, output_file, num_copies):
-    workbook = None
-    try:
-        workbook = openpyxl.load_workbook(source_file)
-    except FileNotFoundError:
-        print(f"Error: The template file '{source_file}' was not found.")
-        return
-
-    sheet = workbook[config.template_sheet_name]
-    print_widths(sheet)
-
+def extend_day_columns(sheet, num_copies):
     daily_grade_styles, daily_grade_width = read_styles_and_width(sheet, config.daily_grade_col)
     quarter_styles, quarter_grade_width = read_styles_and_width(sheet, config.quarter_grade_col)
     date_styles, date_width = read_styles_and_width(sheet, config.date_col)
     topic_hw_styles, topic_hw_width = read_styles_and_width(sheet, config.topic_col)
 
     daily_grade_col_idx = column_index_from_string(config.daily_grade_col)
-
     new_merges = []
     for merged_range in list(sheet.merged_cells.ranges):
         if daily_grade_col_idx > merged_range.min_col:
@@ -74,9 +60,20 @@ def replicate_formatted_column(source_file, output_file, num_copies):
     for merge_str in new_merges:
         sheet.merge_cells(merge_str)
 
-    for sheet_name in list(workbook.sheetnames):
-        if sheet_name != config.template_sheet_name:
-            workbook.remove(workbook[sheet_name])
+
+def test(source_file, output_file, num_copies):
+    workbook = None
+    try:
+        workbook = openpyxl.load_workbook(source_file)
+    except FileNotFoundError:
+        print(f"Error: The template file '{source_file}' was not found.")
+        return
+
+    sheet = workbook[config.template_sheet_name]
+
+    print_widths(sheet)
+
+    extend_day_columns(sheet, num_copies)
 
     print_widths(sheet)
 
@@ -102,10 +99,3 @@ def print_widths(sheet):
         width = sheet.column_dimensions[letter].width
         print(f"before column at {letter} has width {width}")
 
-
-if __name__ == "__main__":
-    replicate_formatted_column(
-        source_file=config.template_path,
-        output_file=OUTPUT_FILE,
-        num_copies=total_columns
-    )
