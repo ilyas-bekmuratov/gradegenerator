@@ -45,12 +45,32 @@ def process_class_sheet(
     print(f"subjects_{sheet_name.replace(' ', '_')} = {{")
     for subject, grades in subjects_grades_dict.items():
         if subject in clean_class.subjects:
-            print(f"    '{subject}':\n        \"{grades}\",")
+            clean_class.subjects[subject].has_exam = check_exam_grade(grades)
+            if not clean_class.subjects[subject].has_exam:
+                grades = remove_6th_and_7th_chars(grades)
             clean_class.subjects[subject].grades = grades
+            print(f"    '{subject}':\n        \"{grades}\",")
         else:
             print(f"# WARNING: Grades found for subject '{subject}', but subject is missing from class.")
     print("}")
     return clean_class
+
+
+def check_exam_grade(grades: str):
+    if grades[6] != '0':
+        print("has exam")
+        return True
+    else:
+        return False
+
+
+def remove_6th_and_7th_chars(input_string: str):
+    """
+    A more concise version using a list comprehension.
+    """
+    # Create a list of 5-character slices for every 7-character step
+    parts = [input_string[i:i+5] for i in range(0, len(input_string), 7)]
+    return "".join(parts)
 
 
 def extract_grades_and_classes(

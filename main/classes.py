@@ -6,6 +6,7 @@ class Subject:
         self.name = name
         self.teacher = teacher
         self.grades = ""
+        self.has_exam = False
         self.homework = []
         self.topics = []
         self.hours_in_days = [0, 0, 0, 0, 0]  # 5 days in a week

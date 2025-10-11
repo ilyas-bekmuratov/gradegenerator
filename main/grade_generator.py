@@ -34,7 +34,7 @@ def generate_plausible_grades(final_grade_mark, current_class: Class, subject: S
     penalty_bonus = np.random.uniform(config.penalty_bonus_range[0], config.penalty_bonus_range[1])
 
     if local_weights.get('so4', 0) == 0:
-        # --- CASE: NO FINAL EXAM (СОч weight is 0) ---
+        # --- CASE: No  so4 exam---
         adjusted_sop_contribution = np.clip(total_percent, 0, local_weights['sop'])
         so4_score_rounded = '-'
         actual_so4_contribution = '-'
@@ -42,7 +42,6 @@ def generate_plausible_grades(final_grade_mark, current_class: Class, subject: S
         raw_sop_contribution = np.clip(raw_sop_contribution, 0, local_weights['sop'])
 
     else:
-        # --- CASE: FINAL EXAM EXISTS ---
         min_so4_contrib = max(0, total_percent - local_weights['sop'])
         max_so4_contrib = min(local_weights['so4'], total_percent)
 

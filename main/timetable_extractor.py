@@ -213,8 +213,8 @@ def test1():
     for quarter, days_list in all_days_in_quarters.items():
         print(f"\n---> In quarter {quarter} there are {len(days_list)} date entries:")
         # Join the list of days for cleaner printing
-        print(", ".join(filter(None, days_list)))
+        print("\", \"".join(filter(None, days_list)))
 
 
 if __name__ == "__main__":
-    test2()
+    test1()

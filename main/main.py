@@ -36,7 +36,8 @@ def extract_all_data():
 
 
 def main():
-    all_days_in_year = timetable_extractor.extract_days()
+    all_days_in_year = config.all_days_in_each_quarter
+    # all_days_in_year = timetable_extractor.extract_days()
     all_classes_dict = extract_all_data()
 
     # --- Group classes by parallel (grade level) ---
@@ -53,6 +54,8 @@ def main():
 
     # --- Loop through each parallel group and create a separate file ---
     for parallel, classes_in_parallel in grouped_classes.items():
+        if parallel == "1":
+            continue
         output_filename = f"journal {parallel}.xlsx"
         filepath = os.path.join(config.output_dir, output_filename)
         print(f"\n{'='*20} PROCESSING PARALLEL {parallel} {'='*20}")
@@ -78,9 +81,7 @@ def main():
 
         try:
             print("\nCleaning up final workbook...")
-            for sheet_name in list(workbook.sheetnames):
-                if sheet_name != config.template_sheet_name:
-                    workbook.remove(workbook[sheet_name])
+            workbook.remove(workbook[config.template_sheet_name])
 
             workbook.save(filepath)
             print(f"\nSuccessfully saved the complete report to '{filepath}'.")
@@ -95,7 +96,7 @@ def process_class(workbook, current_class: Class, all_days_in_year: Dict[int, Li
         class_number_str = re.match(r'^\d+', current_class.name).group(0)
         class_number = int(class_number_str)
 
-        split = 7 if class_number >= 5 else 5
+        split = 7 if (class_number >= 5 and subject.has_exam) else 5
         split_grades: list[list[int]] = helper.split_string_by_pattern(subject.grades, split)
 
         for i in range(4):
@@ -197,22 +198,22 @@ def quarter(
 
     for r_idx, row_data in enumerate(rows, config.start_row):
         for c_idx, value in enumerate(row_data, ):
-            sheet.cell(row=r_idx, column=c_idx, value=value if not pd.isna(value) else None)
+            sheet.cell(row=r_idx+1, column=c_idx+1, value=value if not pd.isna(value) else None)
     print(f"  -> Wrote main grade data for {len(final_df)} students.")
 
     total_hours_this_quarter = helper.get_hours_this_quarter(subject, quarter_num, all_days_in_year)
-
+    dates_start_col = column_index_from_string(config.date_col)
     topics_start_col = column_index_from_string(config.topic_col)
-    quarter_start_index = helper.get_quarter_start_index(subject, quarter_num, total_hours_this_quarter)
+    quarter_start_index = helper.get_quarter_start_index(subject, quarter_num)
 
     # --- Topic and Homework Distribution Logic ---
-    print("  -> Placing dates, topics, homework")
+    print(f"  -> Placing {total_hours_this_quarter} dates, topics, homework starting from {quarter_start_index}")
     quarter_topics = subject.topics[quarter_start_index:quarter_start_index+total_hours_this_quarter]
     quarter_hw = subject.homework[quarter_start_index:quarter_start_index+total_hours_this_quarter]
     quarter_dates = helper.get_days_this_quarter(subject, quarter_num, all_days_in_year)
 
     for idx, date in enumerate(quarter_dates):
-        sheet.cell(row=config.start_row + idx, column=topics_start_col, value=date)
+        sheet.cell(row=config.start_row + idx, column=dates_start_col, value=date)
 
     for idx, topic in enumerate(quarter_topics):
         sheet.cell(row=config.start_row + idx, column=topics_start_col, value=topic)
@@ -221,7 +222,9 @@ def quarter(
         sheet.cell(row=config.start_row + idx, column=topics_start_col+1, value=hw)
 
     # --- Daily Grade Generation Logic ---
-    writer.extend_day_columns(sheet, total_hours_this_quarter)
+    is_last_quarter = quarter_num == 4
+    writer.extend_day_columns(sheet, total_hours_this_quarter, is_last_quarter, subject.has_exam)
+    print(f"  -> Extended the table by {total_hours_this_quarter}")
 
     num_grades_to_place = int(total_hours_this_quarter * config.daily_grade_density)
 
