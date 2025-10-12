@@ -20,26 +20,27 @@ def extend_day_columns(sheet, num_copies, is_last_quarter=False, has_exam=False)
 
         new_min_col = merged_range.min_col + num_copies - 1
         new_max_col = merged_range.max_col + num_copies - 1
-        new_range_str = f"{get_column_letter(new_min_col)}{merged_range.min_row}:{get_column_letter(new_max_col)}{merged_range.max_row}"
+        new_range_str = (f"{get_column_letter(new_min_col)}{merged_range.min_row}" +
+                         f":{get_column_letter(new_max_col)}{merged_range.max_row}")
         new_merges.append(new_range_str)
 
-    col_idx = column_index_from_string(config.date_col)
+    col_idx = column_index_from_string(config.quarter_grade_col)
 
     quarter_to_dates_offset = 12
+    amount_cols_to_delete = 0
     if not is_last_quarter:
-        quarter_to_dates_offset -= 3
         print("      -> not the last quarter removed 3 columns")
-        sheet.delete_cols(col_idx + quarter_to_dates_offset)  # delete the final grade, exam, and summary grade columns
-        sheet.delete_cols(col_idx + quarter_to_dates_offset)
-        sheet.delete_cols(col_idx + quarter_to_dates_offset)
+        amount_cols_to_delete = 3  # delete the final grade, exam, and summary grade columns
     elif not has_exam:
         print("      -> has no exam, removed 2 columns")
-        quarter_to_dates_offset -= 2  # delete the exam and summary grade columns
-        sheet.delete_cols(col_idx + quarter_to_dates_offset)
-        sheet.delete_cols(col_idx + quarter_to_dates_offset)
+        amount_cols_to_delete = 2  # delete the exam and summary grade columns
+
+    quarter_to_dates_offset -= amount_cols_to_delete
+    sheet.delete_cols(col_idx + quarter_to_dates_offset, amount=amount_cols_to_delete)
 
     sheet.insert_cols(daily_grade_col_idx, num_copies - 1)
 
+    col_idx = daily_grade_col_idx
     final_idx = col_idx + num_copies
     while col_idx < final_idx:
         current_col_letter = get_column_letter(col_idx)

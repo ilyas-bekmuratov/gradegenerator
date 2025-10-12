@@ -45,7 +45,10 @@ split_sd = 2.5  # default value = (max_so4_contrib - min_so4_contrib) / 4
 # A smaller number (e.g., 2.0) makes the split very even, and arger number - very uneven splits.
 
 subject_teacher_cell = [1, 2]  # B1
+quarter_num_cell = [1, 4]  # D1
 student_name_cell = [7, 2]
+dates_row = 6
+months_row = 2
 start_row = 7
 max_row = 42
 daily_grade_col = "C"

@@ -97,7 +97,7 @@ def process_days_sheet(xls, sheet_name) -> Dict[int, List[str]]:
     return days_by_quarter
 
 
-def extract_class_subjects(filepath=config.timetable_path) -> Dict[str, Class]:
+def extract_class_subjects(filepath=config.timetable_path, class_name: str = "") -> Dict[str, Class]:
     """
     Opens the timetable Excel file and extracts the schedule for all classes from each sheet.
     """
@@ -115,7 +115,7 @@ def extract_class_subjects(filepath=config.timetable_path) -> Dict[str, Class]:
             df = pd.read_excel(xls, sheet_name=sheet_name, header=None)
 
             # Process the sheet to get class schedules
-            sheet_classes = process_timetable_sheet(df, sheet_name)
+            sheet_classes = process_timetable_sheet(df, sheet_name, target_class=class_name)
 
             # Add the extracted classes from the current sheet to the main dictionary
             all_classes_data.update(sheet_classes)
@@ -125,7 +125,7 @@ def extract_class_subjects(filepath=config.timetable_path) -> Dict[str, Class]:
     return all_classes_data
 
 
-def process_timetable_sheet(df: pd.DataFrame, sheet_name: str) -> Dict[str, Class]:
+def process_timetable_sheet(df: pd.DataFrame, sheet_name: str, target_class:str = "") -> Dict[str, Class]:
     """
     Processes a single timetable sheet to extract subjects and their schedules for each class.
     Assumes a specific format where each class has a subject row, a teacher row, and a blank row.
@@ -149,6 +149,8 @@ def process_timetable_sheet(df: pd.DataFrame, sheet_name: str) -> Dict[str, Clas
             break
 
         class_name = str(class_name).strip()
+        if class_name != target_class and target_class != "":
+            continue
         subjects_in_class = {}
 
         # A week has 5 days, and each day has 7 lesson slots

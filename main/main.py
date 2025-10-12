@@ -28,10 +28,10 @@ from typing import List, Dict
 from classes import Class, Subject
 
 
-def extract_all_data():
-    all_classes_dict = timetable_extractor.extract_class_subjects()
-    topic_extractor.extract_all_topics_and_hw(all_classes_dict)
-    class_extractor.extract_grades_and_classes(all_classes_dict)
+def extract_all_data(class_str:str = ""):
+    all_classes_dict = timetable_extractor.extract_class_subjects(class_name=class_str)
+    topic_extractor.extract_all_topics_and_hw(all_classes_dict, class_name=class_str)
+    class_extractor.extract_grades_and_classes(all_classes_dict, class_name=class_str)
     return all_classes_dict
 
 
@@ -110,7 +110,7 @@ def quarter(
         quarter_num: int,
         subject: Subject,
         split_grades: list[list[int]],
-        all_days_in_year: Dict[int, List[str]]
+        all_days_in_each_quarter: Dict[int, List[str]] = config.all_days_in_each_quarter
 ):
     chrome_length = len(f"{current_class.name} -  - Q{quarter_num}")
     max_subject_len = 31 - chrome_length
@@ -194,14 +194,19 @@ def quarter(
     title = f"Наименование предмета: {subject.name.capitalize()} Преподователь: {subject.teacher}"
     sheet.cell(row=subject_teacher_cell_row, column=subject_teacher_cell_col, value=title)
 
+    [quarter_num_cell_row, quarter_num_celll_col] = config.quarter_num_cell
+    quarter_text = f"Расчет оценки за {quarter_num}-четверть"
+    sheet.cell(row=quarter_num_cell_row, column=quarter_num_celll_col, value=quarter_text)
+
     rows = dataframe_to_rows(final_df, index=False, header=False)
+    quarter_grade_start_col_index = column_index_from_string(config.quarter_grade_col)
 
     for r_idx, row_data in enumerate(rows, config.start_row):
-        for c_idx, value in enumerate(row_data, ):
-            sheet.cell(row=r_idx+1, column=c_idx+1, value=value if not pd.isna(value) else None)
+        for c_idx, value in enumerate(row_data, quarter_grade_start_col_index):
+            sheet.cell(row=r_idx, column=c_idx, value=value if not pd.isna(value) else None)
     print(f"  -> Wrote main grade data for {len(final_df)} students.")
 
-    total_hours_this_quarter = helper.get_hours_this_quarter(subject, quarter_num, all_days_in_year)
+    total_hours_this_quarter = helper.get_hours_this_quarter(subject, quarter_num, all_days_in_each_quarter)
     dates_start_col = column_index_from_string(config.date_col)
     topics_start_col = column_index_from_string(config.topic_col)
     quarter_start_index = helper.get_quarter_start_index(subject, quarter_num)
@@ -210,7 +215,7 @@ def quarter(
     print(f"  -> Placing {total_hours_this_quarter} dates, topics, homework starting from {quarter_start_index}")
     quarter_topics = subject.topics[quarter_start_index:quarter_start_index+total_hours_this_quarter]
     quarter_hw = subject.homework[quarter_start_index:quarter_start_index+total_hours_this_quarter]
-    quarter_dates = helper.get_days_this_quarter(subject, quarter_num, all_days_in_year)
+    quarter_dates = helper.get_days_this_quarter(subject, quarter_num, all_days_in_each_quarter)
 
     for idx, date in enumerate(quarter_dates):
         sheet.cell(row=config.start_row + idx, column=dates_start_col, value=date)
@@ -222,16 +227,23 @@ def quarter(
         sheet.cell(row=config.start_row + idx, column=topics_start_col+1, value=hw)
 
     # --- Daily Grade Generation Logic ---
-    is_last_quarter = quarter_num == 4
-    writer.extend_day_columns(sheet, total_hours_this_quarter, is_last_quarter, subject.has_exam)
-    print(f"  -> Extended the table by {total_hours_this_quarter}")
-
-    num_grades_to_place = int(total_hours_this_quarter * config.daily_grade_density)
-
     quarter_grades_start_col = column_index_from_string(config.quarter_grade_col)
     daily_grades_start_col = column_index_from_string(config.daily_grade_col)
 
-    available_cols = list(range(daily_grades_start_col, quarter_grades_start_col + total_hours_this_quarter))
+    is_last_quarter = quarter_num == 4
+    writer.extend_day_columns(sheet, total_hours_this_quarter, is_last_quarter, subject.has_exam)
+    month = ""
+    for idx, date in enumerate(quarter_dates):
+        sheet.cell(row=config.dates_row, column=daily_grades_start_col + idx, value=date[:2])
+        this_month = helper.get_month_from_date(date)
+        if this_month != month:
+            month = this_month
+            sheet.cell(row=config.months_row, column=daily_grades_start_col + idx, value=month)
+    print(f"  -> Extended the table by {total_hours_this_quarter} columns")
+
+    num_grades_to_place = int(total_hours_this_quarter * config.daily_grade_density)
+
+    available_cols = list(range(daily_grades_start_col, quarter_grades_start_col + total_hours_this_quarter - 1))
 
     for idx, row in df.iterrows():
         student_row = student_start_row + idx

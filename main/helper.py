@@ -2,8 +2,8 @@
 from classes import Subject, Class
 from typing import Dict, List
 import config
-import timetable_extractor
-import writer
+import openpyxl
+import main
 from os import path
 
 
@@ -95,17 +95,61 @@ def get_day_name_by_index(day_idx: int):
         return "Sunday"
 
 
+def get_month_from_date(date: str):
+    month = date[3:5]
+    if month == "9":
+        return "Сентябрь"
+    if month == "10":
+        return "Октябрь"
+    if month == "11":
+        return "Ноябрь"
+    if month == "12":
+        return "Декабрь"
+    if month == "01":
+        return "Январь"
+    if month == "02":
+        return "Февраль"
+    if month == "03":
+        return "Март"
+    if month == "04":
+        return "Апрель"
+    if month == "05":
+        return "Май"
+    if month == "06":
+        return "Июнь"
+    return month
+
+
+def test_subject(current_class: Class, class_number: int, workbook, subject_name: str):
+    current_subject = current_class.subjects[subject_name]
+
+    split = 7 if (class_number >= 5 and current_subject.has_exam) else 5
+    split_grades: list[list[int]] = split_string_by_pattern(current_subject.grades, split)
+    main.quarter(workbook, current_class, 3, current_subject, split_grades)
+    main.quarter(workbook, current_class, 4, current_subject, split_grades)
+
+
 def full_test():
-    all_classes: Dict[str, Class] = timetable_extractor.extract_class_subjects()
-    class_obj: Class = all_classes["8F"]
-    test_subject = class_obj.subjects['физика']
-    quarter_num = 3
-    days = get_days_this_quarter(test_subject, quarter_num)
-    hours = get_hours_this_quarter(test_subject, quarter_num)
-    index = get_quarter_start_index(test_subject, quarter_num)
-    print(f"starting at index {index}, subject {test_subject} has {hours} hours {quarter_num} quarter \n {days}")
-    output_path = path.join(config.output_dir, "test"+config.output_filename)
-    writer.test(config.template_path, output_path, hours)
+    class_str = "9F"
+    all_classes: Dict[str, Class] = main.extract_all_data(class_str)
+    current_class: Class = all_classes[class_str]
+    class_number = int(class_str[0])
+
+    print(f"FULL-TEST   ->class {current_class.name}")
+    output_path = str(path.join(config.output_dir, "test"+config.output_filename))
+    workbook = None
+    try:
+        workbook = openpyxl.load_workbook(config.template_path)
+    except FileNotFoundError:
+        print(f"Error: The template file '{config.template_path}' was not found.")
+        return
+
+    test_subjects = ["физика", "химия", "казахский язык и литература", "иностранный язык"]
+    for subject_name in test_subjects:
+        test_subject(current_class, class_number, workbook, subject_name)
+
+    workbook.remove(workbook[config.template_sheet_name])
+    workbook.save(output_path)
 
 
 if __name__ == "__main__":

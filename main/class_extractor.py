@@ -8,9 +8,14 @@ import helper
 def process_class_sheet(
         xls,
         sheet_name,
-        all_classes_dict: Dict[str, Class]
+        all_classes_dict: Dict[str, Class],
+        target_class: str = ""
 ):
+    if sheet_name != target_class and target_class != "":
+        return
+
     print(f"\n# --- Configuration for Class: {sheet_name} ---")
+
     df = pd.read_excel(xls, sheet_name=sheet_name, header=0)
     if len(df.columns) < 4:
         print(f"# Skipping sheet '{sheet_name}' - it does not have the expected format.")
@@ -75,7 +80,8 @@ def remove_6th_and_7th_chars(input_string: str):
 
 def extract_grades_and_classes(
         all_classes_dict: Dict[str, Class],
-        filepath=config.grades_path
+        filepath=config.grades_path,
+        class_name: str = ""
 ):
     try:
         xls = pd.ExcelFile(filepath)
@@ -83,5 +89,5 @@ def extract_grades_and_classes(
         print(f"Error: The file '{filepath}' was not found.")
         return
     for sheet_name in xls.sheet_names:
-        all_classes_dict[sheet_name] = process_class_sheet(xls, sheet_name, all_classes_dict)
+        all_classes_dict[sheet_name] = process_class_sheet(xls, sheet_name, all_classes_dict, target_class=class_name)
     return

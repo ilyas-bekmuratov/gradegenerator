@@ -8,14 +8,16 @@ import re
 
 def extract_all_topics_and_hw(
         all_classes_dict: Dict[str, Class],
+        class_name: str = ""
 ):
-    extract_topics_and_hw(all_classes_dict, True)
-    extract_topics_and_hw(all_classes_dict, False)
+    extract_topics_and_hw(all_classes_dict, True, target_class=class_name)
+    extract_topics_and_hw(all_classes_dict, False, target_class=class_name)
 
 
 def extract_topics_and_hw(
         all_classes_dict: Dict[str, Class],
-        is_kaz: bool
+        is_kaz: bool,
+        target_class: str = ""
 ):
     folder_path_str = config.kaz_topics_path if is_kaz else config.rus_topics_path
     if not folder_path_str:
@@ -44,6 +46,8 @@ def extract_topics_and_hw(
             # Find a class that starts with the number and matches the language context (Kaz/Rus)
             for class_name_key, class_object in all_classes_dict.items():
                 if class_name_key.startswith(class_num_str):
+                    if target_class != "" and not target_class.startswith(class_num_str):
+                        continue
                     is_class_key_kaz = any(class_name_key.endswith(c) for c in ('A', 'a', '8B', '8b'))
 
                     if (is_kaz and is_class_key_kaz) or (not is_kaz and not is_class_key_kaz):
