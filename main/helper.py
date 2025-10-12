@@ -22,7 +22,7 @@ def clean_grade(grade):
     - Converts empty cells or other non-numeric text to '0'.
     """
     if pd.isna(grade) or str(grade).strip() == '':
-        return '-'
+        return '0'
 
     grade_str = str(grade).strip().lower()
     if grade_str in ["зачет", "зачёт", "сынақ", "есептелінді"]:
@@ -31,7 +31,7 @@ def clean_grade(grade):
     try:
         return str(int(float(grade)))
     except (ValueError, TypeError):
-        return '-'
+        return '0'
 
 
 def get_hours_this_quarter(

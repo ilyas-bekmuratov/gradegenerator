@@ -142,7 +142,7 @@ def quarter(
             }
             results.append(blank_data)
         elif grade in config.grade_bands:
-            generated_data = gg.generate_plausible_grades(grade, current_class, subject, quarter_num)
+            generated_data = gg.generate_plausible_grades(grade, subject, quarter_num)
             results.append(generated_data)
 
     if not results:
@@ -264,7 +264,7 @@ def quarter(
         if bonus == 0:
             continue  # Skip for blank/pass-fail students
 
-        distribution = config.get_daily_grade_distribution(bonus, split_grades[quarter_num][idx])
+        distribution = config.get_daily_grade_distribution(bonus, split_grades[quarter_num-1][idx])
         grades, weights = zip(*distribution.items())
         cols_to_fill = random.sample(available_cols, num_grades_to_place)
 

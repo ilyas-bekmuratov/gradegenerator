@@ -3,6 +3,7 @@ from classes import Class
 import config
 from typing import Dict
 import helper
+import re
 
 
 def process_class_sheet(
@@ -50,7 +51,7 @@ def process_class_sheet(
     print(f"subjects_{sheet_name.replace(' ', '_')} = {{")
     for subject, grades in subjects_grades_dict.items():
         if subject in clean_class.subjects:
-            clean_class.subjects[subject].has_exam = check_exam_grade(grades)
+            clean_class.subjects[subject].has_exam = check_exam_grade(grades, sheet_name)
             if not clean_class.subjects[subject].has_exam:
                 grades = remove_6th_and_7th_chars(grades)
             clean_class.subjects[subject].grades = grades
@@ -61,8 +62,10 @@ def process_class_sheet(
     return clean_class
 
 
-def check_exam_grade(grades: str):
-    if grades[6] != '0':
+def check_exam_grade(grades: str, class_name):
+    class_number_str = re.match(r'^\d+', class_name).group(0)
+    class_number = int(class_number_str)
+    if grades[6] != '0' and class_number >= 5:
         print("has exam")
         return True
     else:
