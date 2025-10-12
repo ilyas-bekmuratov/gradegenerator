@@ -209,6 +209,8 @@ def quarter(
     total_hours_this_quarter = helper.get_hours_this_quarter(subject, quarter_num, all_days_in_each_quarter)
     dates_start_col = column_index_from_string(config.date_col)
     topics_start_col = column_index_from_string(config.topic_col)
+    quarter_grades_start_col = column_index_from_string(config.quarter_grade_col)
+    daily_grades_start_col = column_index_from_string(config.daily_grade_col)
     quarter_start_index = helper.get_quarter_start_index(subject, quarter_num)
 
     # --- Topic and Homework Distribution Logic ---
@@ -218,7 +220,7 @@ def quarter(
     quarter_dates = helper.get_days_this_quarter(subject, quarter_num, all_days_in_each_quarter)
 
     for idx, date in enumerate(quarter_dates):
-        sheet.cell(row=config.start_row + idx, column=dates_start_col, value=date)
+        sheet.cell(row=config.start_row + idx, column=dates_start_col, value=date[:5])
 
     for idx, topic in enumerate(quarter_topics):
         sheet.cell(row=config.start_row + idx, column=topics_start_col, value=topic)
@@ -226,12 +228,22 @@ def quarter(
     for idx, hw in enumerate(quarter_hw):
         sheet.cell(row=config.start_row + idx, column=topics_start_col+1, value=hw)
 
-    # --- Daily Grade Generation Logic ---
-    quarter_grades_start_col = column_index_from_string(config.quarter_grade_col)
-    daily_grades_start_col = column_index_from_string(config.daily_grade_col)
+    if quarter_num == 4:
+        yearly_grade_col = quarter_grades_start_col + config.quarter_to_dates_offset - 3
+        print(f"     -> quarter 4 must have yearly grades")
+        for idx, grade in enumerate(split_grades[4]):
+            sheet.cell(row=config.start_row + idx, column=yearly_grade_col, value=grade)
+        if subject.has_exam:
+            # print(split_grades[5])
+            # print(split_grades[6])
+            for idx, grade in enumerate(split_grades[5]):
+                sheet.cell(row=config.start_row + idx, column=yearly_grade_col+1, value=grade)
+            for idx, grade in enumerate(split_grades[6]):
+                sheet.cell(row=config.start_row + idx, column=yearly_grade_col+2, value=grade)
 
+    # --- Daily Grade Generation Logic ---
     is_last_quarter = quarter_num == 4
-    writer.extend_day_columns(sheet, total_hours_this_quarter, is_last_quarter, subject.has_exam)
+    sheet = writer.extend_day_columns(sheet, total_hours_this_quarter, is_last_quarter, subject.has_exam)
     month = ""
     for idx, date in enumerate(quarter_dates):
         sheet.cell(row=config.dates_row, column=daily_grades_start_col + idx, value=date[:2])
@@ -252,7 +264,7 @@ def quarter(
         if bonus == 0:
             continue  # Skip for blank/pass-fail students
 
-        distribution = config.get_daily_grade_distribution(bonus)
+        distribution = config.get_daily_grade_distribution(bonus, split_grades[quarter_num][idx])
         grades, weights = zip(*distribution.items())
         cols_to_fill = random.sample(available_cols, num_grades_to_place)
 

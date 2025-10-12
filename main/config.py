@@ -51,6 +51,7 @@ dates_row = 6
 months_row = 2
 start_row = 7
 max_row = 42
+quarter_to_dates_offset = 12
 daily_grade_col = "C"
 quarter_grade_col = "D"
 year_grade_col = "M"
@@ -107,22 +108,26 @@ all_days_in_each_quarter = {
         ]
 }
 
-def get_daily_grade_distribution(bonus):
+
+def get_daily_grade_distribution(bonus, quarter_grade):
     """Determines the primary daily grade and a secondary grade based on the bonus."""
     primary_grade = 4  # Default grade
     for grade, (min_bonus, max_bonus) in DAILY_GRADE_BANDS.items():
         if min_bonus <= bonus < max_bonus:
             primary_grade = grade
+            # print(f"primary grade is {primary_grade}, bonus {bonus}, quarter grade is {quarter_grade}")
+            primary_grade = min(primary_grade, quarter_grade)
             break
 
     # Create a weighted distribution for more realistic grades
     # The primary grade is highly likely, with a small chance of an adjacent grade
+    split = {10: 0.05, 9: 0.1, 8: 0.65, 7: 0.1, 6: 0.05, 5: 0.044, 4: 0.005, 3: 0.001}  # Default case same as 4
     if primary_grade == 5:
-        return {10: 0.75, 9: 0.1, 8: 0.06, 7: 0.04, 6: 0.04, 5: 0.007, 4: 0.003}  # Mostly 5s, some 4s
+        split = {10: 0.75, 9: 0.1, 8: 0.06, 7: 0.04, 6: 0.04, 5: 0.007, 4: 0.003}  # Mostly 5s, some 4s
     if primary_grade == 4:
-        return {10: 0.05, 9: 0.1, 8: 0.65, 7: 0.1, 6: 0.05, 5: 0.044, 4: 0.005, 3: 0.001}
+        split = {10: 0.05, 9: 0.1, 8: 0.65, 7: 0.1, 6: 0.05, 5: 0.044, 4: 0.005, 3: 0.001}
     if primary_grade == 3:
-        return {10: 0.01, 9: 0.015, 8: 0.025, 7: 0.05, 6: 0.1, 5: 0.65, 4: 0.1, 3: 0.045, 2: 0.005}
+        split = {10: 0.01, 9: 0.015, 8: 0.025, 7: 0.05, 6: 0.1, 5: 0.65, 4: 0.1, 3: 0.045, 2: 0.005}
     if primary_grade == 2:
-        return {10: 0.002, 9: 0.003, 8: 0.005, 7: 0.015, 6: 0.25, 5: 0.05, 4: 0.1, 3: 0.65, 2: 0.1}
-    return {10: 0.05, 9: 0.1, 8: 0.65, 7: 0.1, 6: 0.05, 5: 0.044, 4: 0.005, 3: 0.001}  # Default case same as 4
+        split = {10: 0.002, 9: 0.003, 8: 0.005, 7: 0.015, 6: 0.25, 5: 0.05, 4: 0.1, 3: 0.65, 2: 0.1}
+    return split

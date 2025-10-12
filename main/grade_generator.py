@@ -4,7 +4,7 @@ import config
 from classes import Class, Subject
 
 
-def generate_plausible_grades(final_grade_mark, current_class: Class, subject: Subject, quarter_num: int):
+def generate_plausible_grades(final_grade_mark, subject: Subject, quarter_num: int):
     # --- Create local copies of settings to modify them based on rules ---
     local_num_midterms = config.num_midterms
     local_weights = config.weights.copy()
