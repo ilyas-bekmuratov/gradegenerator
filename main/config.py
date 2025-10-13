@@ -121,7 +121,7 @@ def get_daily_grade_distribution(bonus, quarter_grade):
 
     # Create a weighted distribution for more realistic grades
     # The primary grade is highly likely, with a small chance of an adjacent grade
-    split = {10: 0.05, 9: 0.1, 8: 0.65, 7: 0.1, 6: 0.05, 5: 0.044, 4: 0.005, 3: 0.001}  # Default case same as 4
+    split = {10: 0.75, 9: 0.1, 8: 0.06, 7: 0.04, 6: 0.04, 5: 0.007, 4: 0.003} # Default case same as 5
     if primary_grade == 5:
         split = {10: 0.75, 9: 0.1, 8: 0.06, 7: 0.04, 6: 0.04, 5: 0.007, 4: 0.003}  # Mostly 5s, some 4s
     if primary_grade == 4:

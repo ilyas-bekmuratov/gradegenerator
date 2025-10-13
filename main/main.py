@@ -28,7 +28,7 @@ from typing import List, Dict
 from classes import Class, Subject
 
 
-def extract_all_data(class_str:str = ""):
+def extract_all_data(class_str: str = ""):
     all_classes_dict = timetable_extractor.extract_class_subjects(class_name=class_str)
     topic_extractor.extract_all_topics_and_hw(all_classes_dict, class_name=class_str)
     class_extractor.extract_grades_and_classes(all_classes_dict, class_name=class_str)
@@ -91,7 +91,7 @@ def main():
 
 def process_class(workbook, current_class: Class, all_days_in_year: Dict[int, List[str]]):
     for subject_name, subject in current_class.subjects.items():
-        print(f"\n--- Processing Subject: {subject_name} ({subject.hours}h/w) for class {current_class.name} ---")
+        print(f"\n--- Processing Subject: {subject_name} ({subject.hours()}h/w) for class {current_class.name} ---")
 
         class_number_str = re.match(r'^\d+', current_class.name).group(0)
         class_number = int(class_number_str)
@@ -118,15 +118,17 @@ def quarter(
     output_sheet_name = f"{current_class.name} - {short_subject_name} - Q{quarter_num}"
 
     quarter_grades = split_grades[quarter_num - 1]
+    total_hours_this_quarter = helper.get_hours_this_quarter(subject, quarter_num, all_days_in_each_quarter)
 
-    if not any(quarter_grades):
-        print(f"  -> Skipping Quarter {quarter_num} (no grades).")
+    print(f"  ->quarter {quarter_num} has grades: {quarter_grades}")
+    if total_hours_this_quarter == 0:
+        print(f"\n  -> Skipping Quarter {quarter_num} (no lessons).\n")
         return
 
     print(f"  -> Generating data for Quarter {quarter_num}'...")
     results = []
 
-    num_midterms_for_df = 1 if subject.hours == 1 else config.num_midterms
+    num_midterms_for_df = 1 if subject.hours() == 1 else config.num_midterms
 
     for grade in quarter_grades:
         if grade in [0, 1]:  # Handle blank and pass/fail
@@ -184,7 +186,8 @@ def quarter(
         template_sheet = workbook[config.template_sheet_name]
         sheet = workbook.copy_worksheet(template_sheet)
         sheet.title = output_sheet_name
-        print(f"  -> Created sheet '{output_sheet_name}' from template '{config.template_sheet_name}'.")
+        print(f"  -> Created sheet '{output_sheet_name}' "
+              f"from template '{config.template_sheet_name}' for {subject.hours()} hours a week.")
 
     [student_start_row, student_start_col] = config.student_name_cell
     for idx, student_name in enumerate(current_class.students):
@@ -258,19 +261,19 @@ def quarter(
     available_cols = list(range(daily_grades_start_col, quarter_grades_start_col + total_hours_this_quarter - 1))
 
     for idx, row in df.iterrows():
-        student_row = student_start_row + idx
         bonus = row['Penalty/Bonus Applied']
 
+        quarter_index = quarter_num-1
         if bonus == 0:
-            continue  # Skip for blank/pass-fail students
+            quarter_index += 1  # do not skip for blank or pass/fail grades, use next split grades instead
 
-        distribution = config.get_daily_grade_distribution(bonus, split_grades[quarter_num-1][idx])
+        distribution = config.get_daily_grade_distribution(bonus, split_grades[quarter_index][idx])
         grades, weights = zip(*distribution.items())
         cols_to_fill = random.sample(available_cols, num_grades_to_place)
 
         for col in cols_to_fill:
             generated_grade = random.choices(grades, weights=weights, k=1)[0]
-            sheet.cell(row=student_row, column=col, value=generated_grade)
+            sheet.cell(row=student_start_row + idx, column=col, value=generated_grade)
 
 
 if __name__ == "__main__":

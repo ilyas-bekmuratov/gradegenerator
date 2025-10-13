@@ -1,7 +1,7 @@
 ﻿import numpy as np
 import random
 import config
-from classes import Class, Subject
+from classes import Subject
 
 
 def generate_plausible_grades(final_grade_mark, subject: Subject, quarter_num: int):
@@ -10,7 +10,7 @@ def generate_plausible_grades(final_grade_mark, subject: Subject, quarter_num: i
     local_weights = config.weights.copy()
     local_max_scores = config.max_scores.copy()
 
-    if subject.hours == 1:
+    if subject.hours() == 1:
         local_num_midterms = 1  # Only 1 midterm
         # No final exam (СОч) in Q1 and Q3
         if quarter_num in [1, 3]:
@@ -53,10 +53,14 @@ def generate_plausible_grades(final_grade_mark, subject: Subject, quarter_num: i
         so4_percent_contribution = np.clip(so4_percent_contribution, min_so4_contrib, max_so4_contrib)
         sop_percent_contribution = total_percent - so4_percent_contribution
 
-        so4_score_float = (so4_percent_contribution / local_weights['so4']) * so4_max_score if local_weights['so4'] > 0 else 0
+        so4_score_float = (so4_percent_contribution / local_weights['so4']) * so4_max_score \
+            if local_weights['so4'] > 0 \
+            else 0
         so4_score_rounded = int(round(so4_score_float))
         so4_score_rounded = np.clip(so4_score_rounded, 0, so4_max_score)
-        actual_so4_contribution = (so4_score_rounded / so4_max_score) * local_weights['so4'] if so4_max_score > 0 else 0
+        actual_so4_contribution = (so4_score_rounded / so4_max_score) * local_weights['so4'] \
+            if so4_max_score > 0 \
+            else 0
 
         rounding_diff = so4_percent_contribution - actual_so4_contribution
         adjusted_sop_contribution = sop_percent_contribution + rounding_diff
@@ -86,7 +90,7 @@ def generate_plausible_grades(final_grade_mark, subject: Subject, quarter_num: i
         else actual_so4_contribution
 
     final_grade_output = final_grade_mark
-    if subject.hours == 1 and quarter_num in [1, 3]:
+    if subject.hours() == 1 and quarter_num in [1, 3]:
         final_grade_output = ''
 
     return {

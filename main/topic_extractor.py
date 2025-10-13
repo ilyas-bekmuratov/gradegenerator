@@ -82,7 +82,7 @@ def set_data_to_subject(
     all_topics = []
     all_homework = []
     for sheet_name in xls.sheet_names:
-        df = pd.read_excel(xls, sheet_name=sheet_name, header=0)
+        df = pd.read_excel(xls, sheet_name=sheet_name, header=None)
         if len(df.columns) < 1:
             continue  # Skip empty sheets
 

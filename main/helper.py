@@ -38,11 +38,14 @@ def get_hours_this_quarter(
         subject: Subject, quarter_num: int,
         all_days_in_quarters: Dict[int, List[str]] = config.all_days_in_each_quarter
 ) -> int:
-    return len(get_days_this_quarter(subject, quarter_num, all_days_in_quarters))
+    num_hours = len(get_days_this_quarter(subject, quarter_num, all_days_in_quarters))
+    print(f"subject {subject.name} has {num_hours} hours this quarter, {subject.hours()} pre week")
+    return num_hours
 
 
 def get_days_this_quarter(
-        subject: Subject, quarter_num: int,
+        subject: Subject,
+        quarter_num: int,
         all_days_in_quarters: Dict[int, List[str]] = config.all_days_in_each_quarter
 ) -> List[str]:
     if len(all_days_in_quarters) == 0:
@@ -50,7 +53,7 @@ def get_days_this_quarter(
         return []
 
     days_this_quarter: List[str] = []
-    # print(f"getting days for {subject.name} for quarter {quarter_num}")
+    print(f"getting days for {subject.name} for quarter {quarter_num}")
     for idx, date in enumerate(all_days_in_quarters[quarter_num]):
         if date == "NaT":
             continue
@@ -73,8 +76,8 @@ def get_quarter_start_index(
         all_days_in_quarters: Dict[int, List[str]] = config.all_days_in_each_quarter
 ) -> int:
     index = 0
-    for i in range(quarter_num):
-        index += get_hours_this_quarter(subject, i+1, all_days_in_quarters)
+    for q in range(1, quarter_num):
+        index += get_hours_this_quarter(subject, q, all_days_in_quarters)
     return index
 
 
@@ -125,8 +128,9 @@ def test_subject(current_class: Class, class_number: int, workbook, subject_name
 
     split = 7 if (class_number >= 5 and current_subject.has_exam) else 5
     split_grades: list[list[int]] = split_string_by_pattern(current_subject.grades, split)
-    main.quarter(workbook, current_class, 3, current_subject, split_grades)
-    main.quarter(workbook, current_class, 4, current_subject, split_grades)
+    quarters_to_test = [1, 2, 3, 4]
+    for q in quarters_to_test:
+        main.quarter(workbook, current_class, q, current_subject, split_grades)
 
 
 def full_test():
@@ -144,10 +148,7 @@ def full_test():
         print(f"Error: The template file '{config.template_path}' was not found.")
         return
 
-    test_subjects = ["физика", "химия", "казахский язык и литература", "иностранный язык"]
-    # test_subjects = ["казахский язык и литература"]
-
-    for subject_name in test_subjects:
+    for subject_name, subject in current_class.subjects.items():
         test_subject(current_class, class_number, workbook, subject_name)
 
     workbook.remove(workbook[config.template_sheet_name])
