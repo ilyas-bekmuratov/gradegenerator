@@ -23,10 +23,9 @@ def process_class_sheet(
         return
 
     student_col_name = df.columns[1]
-    quarter_col_name = df.columns[2]
     subject_col_names = df.columns[3:]
     df[student_col_name] = df[student_col_name].ffill()
-    data_df = df.dropna(subset=[student_col_name, quarter_col_name]).copy()
+    data_df = df.dropna(subset=[student_col_name]).copy()
     student_list = data_df[student_col_name].unique().tolist()
     if not student_list:
         return
@@ -40,8 +39,12 @@ def process_class_sheet(
 
         normalized_subject = str(subject).strip().lower()
         grade_series = data_df[subject]
-        grade_string = "".join(grade_series.apply(helper.clean_grade))
+        grade_string = "".join(grade_series.fillna('').apply(helper.clean_grade))
         subjects_grades_dict[normalized_subject] = grade_string
+
+    if sheet_name not in all_classes_dict:
+        print(f"# WARNING: Class '{sheet_name}' from grades file not found in timetable data. Skipping.")
+        return
 
     clean_class = all_classes_dict[sheet_name]
     clean_class.students = student_list
@@ -49,10 +52,12 @@ def process_class_sheet(
 
     print("\n# Dictionary of subjects and their grade strings")
     print(f"subjects_{sheet_name.replace(' ', '_')} = {{")
+    class_number_str = re.match(r'^\d+', clean_class.name).group(0)
+    class_number = int(class_number_str)
     for subject, grades in subjects_grades_dict.items():
         if subject in clean_class.subjects:
-            clean_class.subjects[subject].has_exam = check_exam_grade(grades, sheet_name)
-            if not clean_class.subjects[subject].has_exam:
+            clean_class.subjects[subject].has_exam = check_exam_grade(grades, sheet_name) and class_number >= 5
+            if not clean_class.subjects[subject].has_exam and class_number >= 5:
                 grades = remove_6th_and_7th_chars(grades)
             clean_class.subjects[subject].grades = grades
             print(f"    '{subject}':\n        \"{grades}\",")

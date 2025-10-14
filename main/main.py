@@ -101,6 +101,7 @@ def process_class(workbook, current_class: Class, all_days_in_year: Dict[int, Li
 
         for i in range(4):
             quarter_num = i + 1
+            print(split_grades[i])
             quarter(workbook, current_class, quarter_num, subject, split_grades, all_days_in_year)
 
 
@@ -194,7 +195,7 @@ def quarter(
         sheet.cell(row=student_start_row + idx, column=student_start_col, value=student_name)
 
     [subject_teacher_cell_row, subject_teacher_cell_col] = config.subject_teacher_cell
-    title = f"Наименование предмета: {subject.name.capitalize()} Преподователь: {subject.teacher}"
+    title = f"Наименование предмета: {subject.name.capitalize()} Преподаватель: {subject.teacher}"
     sheet.cell(row=subject_teacher_cell_row, column=subject_teacher_cell_col, value=title)
 
     [quarter_num_cell_row, quarter_num_celll_col] = config.quarter_num_cell
@@ -260,13 +261,18 @@ def quarter(
 
     available_cols = list(range(daily_grades_start_col, quarter_grades_start_col + total_hours_this_quarter - 1))
 
+    print(len(split_grades[quarter_num-1]))
     for idx, row in df.iterrows():
         bonus = row['Penalty/Bonus Applied']
 
         quarter_index = quarter_num-1
         if bonus == 0:
-            quarter_index += 1  # do not skip for blank or pass/fail grades, use next split grades instead
+            if quarter_num == 1 or quarter_num == 3:
+                quarter_index += 1  # do not skip for blank or pass/fail grades, use next split grades instead
+            else:
+                continue
 
+        # print(f"   quarter = {quarter_index}, and index is {idx}: quarter_grades = {split_grades[quarter_index]}")
         distribution = config.get_daily_grade_distribution(bonus, split_grades[quarter_index][idx])
         grades, weights = zip(*distribution.items())
         cols_to_fill = random.sample(available_cols, num_grades_to_place)

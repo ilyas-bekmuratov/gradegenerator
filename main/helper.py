@@ -150,6 +150,7 @@ def full_test():
 
     for subject_name, subject in current_class.subjects.items():
         test_subject(current_class, class_number, workbook, subject_name)
+        break
 
     workbook.remove(workbook[config.template_sheet_name])
     workbook.save(output_path)
