@@ -34,13 +34,37 @@ def clean_grade(grade):
         return '0'
 
 
-def get_hours_this_quarter(
-        subject: Subject, quarter_num: int,
-        all_days_in_quarters: Dict[int, List[str]] = config.all_days_in_each_quarter
-) -> int:
-    num_hours = len(get_days_this_quarter(subject, quarter_num, all_days_in_quarters))
-    print(f"subject {subject.name} has {num_hours} hours this quarter, {subject.hours()} pre week")
-    return num_hours
+def get_dod_days(
+        subject: Subject,
+        all_days_in_quarters: Dict[int, List[str]] = config.all_days_in_each_quarter,
+        skip_week=False
+) -> List[str]:
+    if len(all_days_in_quarters) == 0:
+        print("all_days_in_quarters empty")
+        return []
+
+    skip = skip_week
+    days: List[str] = []
+    # print(f"getting days for {subject.name}")
+    for q in range(1, 5):
+        for idx, date in enumerate(all_days_in_quarters[q]):
+            if date == "nan":
+                continue
+
+            day = idx % 5
+            hours_that_day = subject.hours_in_days[day]
+
+            if hours_that_day == 0:
+                continue
+
+            if skip:
+                skip = not skip
+                continue
+
+            for i in range(hours_that_day):
+                days.append(date)
+
+    return days
 
 
 def get_days_this_quarter(
@@ -55,7 +79,7 @@ def get_days_this_quarter(
     days_this_quarter: List[str] = []
     print(f"getting days for {subject.name} for quarter {quarter_num}")
     for idx, date in enumerate(all_days_in_quarters[quarter_num]):
-        if date == "NaT":
+        if date == "nan":
             continue
 
         day = idx % 5
@@ -72,12 +96,16 @@ def get_days_this_quarter(
 
 
 def get_quarter_start_index(
-        subject: Subject, quarter_num: int,
+        subject: Subject,
+        quarter_num: int,
         all_days_in_quarters: Dict[int, List[str]] = config.all_days_in_each_quarter
 ) -> int:
     index = 0
+    index_from_quarter_of_all_topics = len(subject.topics) // 4
     for q in range(1, quarter_num):
-        index += get_hours_this_quarter(subject, q, all_days_in_quarters)
+        index_from_all = len(get_days_this_quarter(subject, q, all_days_in_quarters))
+        max_index_to_add = min(index_from_all, index_from_quarter_of_all_topics)
+        index += max_index_to_add
     return index
 
 
@@ -123,37 +151,50 @@ def get_month_from_date(date: str):
     return month
 
 
-def test_subject(current_class: Class, class_number: int, workbook, subject_name: str):
+def test_subject(current_class: Class,
+                 class_number: int,
+                 workbook,
+                 subject_name: str,
+                 quarters_to_test: List[int],
+                 is_dod=False):
     current_subject = current_class.subjects[subject_name]
 
     split = 7 if (class_number >= 5 and current_subject.has_exam) else 5
     split_grades: list[list[int]] = split_string_by_pattern(current_subject.grades, split)
-    quarters_to_test = [1, 2, 3, 4]
     for q in quarters_to_test:
-        main.quarter(workbook, current_class, q, current_subject, split_grades)
+        main.quarter(workbook, current_class, q, current_subject, split_grades, is_dod=is_dod)
 
 
 def full_test():
-    class_str = "9F"
-    all_classes: Dict[str, Class] = main.extract_all_data(class_str)
+    is_dod = False
+    class_str = "5A"
+    subjects_to_test = ["қазақ тілі"]
+    quarters_to_test = [1]
+
+    all_classes: Dict[str, Class] = main.extract_all_data(class_str, is_dod=is_dod)
     current_class: Class = all_classes[class_str]
     class_number = int(class_str[0])
 
-    print(f"FULL-TEST   ->class {current_class.name}")
+    print(f"\nFULL-TEST   ->class {current_class.name} subjects: {subjects_to_test}")
+    template_path = config.template_path
     output_path = str(path.join(config.output_dir, "test"+config.output_filename))
     workbook = None
     try:
-        workbook = openpyxl.load_workbook(config.template_path)
+        workbook = openpyxl.load_workbook(template_path)
     except FileNotFoundError:
-        print(f"Error: The template file '{config.template_path}' was not found.")
+        print(f"Error: The template file '{template_path}' was not found.")
         return
 
+    changes_made = False
     for subject_name, subject in current_class.subjects.items():
-        test_subject(current_class, class_number, workbook, subject_name)
-        break
+        if not subjects_to_test or (subject_name in subjects_to_test):
+            test_subject(current_class, class_number, workbook, subject_name, quarters_to_test, is_dod=is_dod)
+            changes_made = True
 
-    workbook.remove(workbook[config.template_sheet_name])
-    workbook.save(output_path)
+    if changes_made:
+        # workbook.remove(workbook[config.template_sheet_name])
+        workbook.remove(workbook[config.dod_template_sheet_name])
+        workbook.save(output_path)
 
 
 if __name__ == "__main__":

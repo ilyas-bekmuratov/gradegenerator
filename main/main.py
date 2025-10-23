@@ -28,17 +28,18 @@ from typing import List, Dict
 from classes import Class, Subject
 
 
-def extract_all_data(class_str: str = ""):
-    all_classes_dict = timetable_extractor.extract_class_subjects(class_name=class_str)
-    topic_extractor.extract_all_topics_and_hw(all_classes_dict, class_name=class_str)
+def extract_all_data(class_str: str = "", is_dod=False):
+    all_classes_dict = timetable_extractor.extract_class_subjects(class_name=class_str, is_dod=is_dod)
+    print(f"class {class_str} has subjects: {all_classes_dict[class_str].subjects.values()}")
+    topic_extractor.extract_all_topics_and_hw(all_classes_dict, class_name=class_str, is_dod=is_dod)
     class_extractor.extract_grades_and_classes(all_classes_dict, class_name=class_str)
     return all_classes_dict
 
 
-def main():
+def main(is_dod=False):
     all_days_in_year = config.all_days_in_each_quarter
     # all_days_in_year = timetable_extractor.extract_days()
-    all_classes_dict = extract_all_data()
+    all_classes_dict = extract_all_data(is_dod=is_dod)
 
     # --- Group classes by parallel (grade level) ---
     grouped_classes = defaultdict(list)
@@ -61,27 +62,29 @@ def main():
         print(f"\n{'='*20} PROCESSING PARALLEL {parallel} {'='*20}")
 
         workbook = None
+        template_path = config.template_path
         try:
             if os.path.exists(filepath):
                 workbook = openpyxl.load_workbook(filepath)
                 print(f"Successfully loaded existing report from '{filepath}'.")
             else:
-                workbook = openpyxl.load_workbook(config.template_path)
+                workbook = openpyxl.load_workbook(template_path)
                 print(f"Creating new report for parallel {parallel} from template.")
 
         except FileNotFoundError:
-            print(f"Error: Template file not found at '{config.template_path}'.")
+            print(f"Error: Template file not found at '{template_path}'.")
             continue
         except Exception as e:
             print(f"An error occurred while loading the workbook for parallel {parallel}: {e}")
             continue
 
         for current_class in classes_in_parallel:
-            process_class(workbook, current_class, all_days_in_year)
+            process_class(workbook, current_class, all_days_in_year, is_dod)
 
         try:
             print("\nCleaning up final workbook...")
             workbook.remove(workbook[config.template_sheet_name])
+            workbook.remove(workbook[config.dod_template_sheet_name])
 
             workbook.save(filepath)
             print(f"\nSuccessfully saved the complete report to '{filepath}'.")
@@ -89,7 +92,12 @@ def main():
             print(f"\nAn error occurred while saving the file '{filepath}': {e}")
 
 
-def process_class(workbook, current_class: Class, all_days_in_year: Dict[int, List[str]]):
+def process_class(
+        workbook,
+        current_class: Class,
+        all_days_in_year: Dict[int, List[str]],
+        is_dod=False
+):
     for subject_name, subject in current_class.subjects.items():
         print(f"\n--- Processing Subject: {subject_name} ({subject.hours()}h/w) for class {current_class.name} ---")
 
@@ -102,7 +110,9 @@ def process_class(workbook, current_class: Class, all_days_in_year: Dict[int, Li
         for i in range(4):
             quarter_num = i + 1
             print(split_grades[i])
-            quarter(workbook, current_class, quarter_num, subject, split_grades, all_days_in_year)
+            quarter(workbook, current_class, quarter_num, subject, split_grades, all_days_in_year, is_dod)
+            if is_dod:
+                break
 
 
 def quarter(
@@ -111,17 +121,66 @@ def quarter(
         quarter_num: int,
         subject: Subject,
         split_grades: list[list[int]],
-        all_days_in_each_quarter: Dict[int, List[str]] = config.all_days_in_each_quarter
+        all_days_in_each_quarter: Dict[int, List[str]] = config.all_days_in_each_quarter,
+        is_dod=False
 ):
     chrome_length = len(f"{current_class.name} -  - Q{quarter_num}")
     max_subject_len = 31 - chrome_length
     short_subject_name = subject.name[:max_subject_len] if len(subject.name) > max_subject_len else subject.name
     output_sheet_name = f"{current_class.name} - {short_subject_name} - Q{quarter_num}"
 
-    quarter_grades = split_grades[quarter_num - 1]
-    total_hours_this_quarter = helper.get_hours_this_quarter(subject, quarter_num, all_days_in_each_quarter)
+    is_art = False
+    for art in config.art:
+        if art in subject.name:
+            is_art = True
+            break
+    is_boys_art = is_art and config.art_boys[current_class.is_kz] in subject.name
+    is_girls_art = is_art and config.art_girls[current_class.is_kz] in subject.name
+    if is_boys_art and is_girls_art:
+        print(f"Warning art subject {subject} has boys and girls mixed up")
 
-    print(f"  ->quarter {quarter_num} has grades: {quarter_grades}")
+    # Get the original full lists from the class object
+    student_list = current_class.students
+    gender_list = current_class.genders
+
+    # Prepare new lists to hold the filtered data
+    filtered_students = []
+    filtered_split_grades = [[] for _ in range(len(split_grades))]
+
+    # print(f"test:   gender list lenth is {len(gender_list)} and student list length is {len(student_list)}")
+    if is_art and (is_boys_art or is_girls_art) and len(gender_list) == len(student_list):
+        print(f"  -> Applying gender filter for '{subject.name}'")
+        for idx, student in enumerate(student_list):
+            is_boy = gender_list[idx]
+
+            if (is_boys_art and not is_boy)\
+                    or (is_girls_art and is_boy):
+                continue
+
+            filtered_students.append(student)
+
+            # We also keep their grades for all quarters/splits
+            for q_idx in range(len(split_grades)):
+                if idx < len(split_grades[q_idx]):  # Safety check
+                    filtered_split_grades[q_idx].append(split_grades[q_idx][idx])
+    else:
+        # No filter, just use the original lists
+        filtered_students = student_list
+        filtered_split_grades = split_grades
+
+    # print(f"test:   filtered students: {filtered_students}\n   split grades {split_grades}\n   filtered grades {filtered_split_grades}")
+
+    quarter_grades = filtered_split_grades[quarter_num - 1]
+
+    skip_week = is_dod and subject.name in config.two_per_month
+    if is_dod:
+        quarter_dates = helper.get_dod_days(subject, all_days_in_each_quarter, skip_week)
+    else:
+        quarter_dates = helper.get_days_this_quarter(subject, quarter_num, all_days_in_each_quarter)
+
+    total_hours_this_quarter = len(quarter_dates)
+
+    print(f"\n  -> quarter {quarter_num} has grades: {quarter_grades}")
     if total_hours_this_quarter == 0:
         print(f"\n  -> Skipping Quarter {quarter_num} (no lessons).\n")
         return
@@ -148,8 +207,16 @@ def quarter(
             generated_data = gg.generate_plausible_grades(grade, subject, quarter_num)
             results.append(generated_data)
 
-    if not results:
+    if not results and subject.name not in config.no_grades:
         return
+    elif not results and subject.name in config.no_grades:
+        blank_data = {
+            "Input Grade": '',
+            "СОр Scores (Midterms)": [''] * num_midterms_for_df,
+            "СОч Score (Final)": '', "Adjusted СОр %": '', "Actual СОч %": '',
+            "Generated Total %": '', "Penalty/Bonus Applied": 0
+        }
+        results.append(blank_data)
 
     df = pd.DataFrame(results)
 
@@ -177,21 +244,23 @@ def quarter(
     )
     final_df = final_df[column_order]
 
+    template_sheet_name = config.dod_template_sheet_name if is_dod else config.template_sheet_name
+
     if output_sheet_name in workbook.sheetnames:
         sheet = workbook[output_sheet_name]
         print(f"  -> Found existing sheet: '{output_sheet_name}'. Overwriting data.")
     else:
-        if config.template_sheet_name not in workbook.sheetnames:
-            print(f"  -> ERROR: Template sheet '{config.template_sheet_name}' not found. Skipping.")
+        if template_sheet_name not in workbook.sheetnames:
+            print(f"  -> ERROR: Template sheet '{template_sheet_name}' not found. Skipping.")
             return
-        template_sheet = workbook[config.template_sheet_name]
+        template_sheet = workbook[template_sheet_name]
         sheet = workbook.copy_worksheet(template_sheet)
         sheet.title = output_sheet_name
         print(f"  -> Created sheet '{output_sheet_name}' "
-              f"from template '{config.template_sheet_name}' for {subject.hours()} hours a week.")
+              f"from template '{template_sheet_name}' for {subject.hours()} hours a week.")
 
     [student_start_row, student_start_col] = config.student_name_cell
-    for idx, student_name in enumerate(current_class.students):
+    for idx, student_name in enumerate(filtered_students):
         sheet.cell(row=student_start_row + idx, column=student_start_col, value=student_name)
 
     [subject_teacher_cell_row, subject_teacher_cell_col] = config.subject_teacher_cell
@@ -203,25 +272,26 @@ def quarter(
     sheet.cell(row=quarter_num_cell_row, column=quarter_num_celll_col, value=quarter_text)
 
     rows = dataframe_to_rows(final_df, index=False, header=False)
-    quarter_grade_start_col_index = column_index_from_string(config.quarter_grade_col)
+    col_letter = config.dod_grade_col if is_dod else config.quarter_grade_col
+    quarter_grade_start_col = column_index_from_string(col_letter)
 
     for r_idx, row_data in enumerate(rows, config.start_row):
-        for c_idx, value in enumerate(row_data, quarter_grade_start_col_index):
+        for c_idx, value in enumerate(row_data, quarter_grade_start_col):
             sheet.cell(row=r_idx, column=c_idx, value=value if not pd.isna(value) else None)
     print(f"  -> Wrote main grade data for {len(final_df)} students.")
 
-    total_hours_this_quarter = helper.get_hours_this_quarter(subject, quarter_num, all_days_in_each_quarter)
-    dates_start_col = column_index_from_string(config.date_col)
-    topics_start_col = column_index_from_string(config.topic_col)
-    quarter_grades_start_col = column_index_from_string(config.quarter_grade_col)
+    date_col_letter = config.dod_date_col if is_dod else config.date_col
+    dates_start_col = column_index_from_string(date_col_letter)
+    topic_col_letter = config.dod_topic_col if is_dod else config.topic_col
+    topics_start_col = column_index_from_string(topic_col_letter)
     daily_grades_start_col = column_index_from_string(config.daily_grade_col)
-    quarter_start_index = helper.get_quarter_start_index(subject, quarter_num)
 
+    quarter_topic_start_index = helper.get_quarter_start_index(subject, quarter_num)
+    quarter_topic_end_index = min(len(subject.topics)//4, total_hours_this_quarter)
     # --- Topic and Homework Distribution Logic ---
-    print(f"  -> Placing {total_hours_this_quarter} dates, topics, homework starting from {quarter_start_index}")
-    quarter_topics = subject.topics[quarter_start_index:quarter_start_index+total_hours_this_quarter]
-    quarter_hw = subject.homework[quarter_start_index:quarter_start_index+total_hours_this_quarter]
-    quarter_dates = helper.get_days_this_quarter(subject, quarter_num, all_days_in_each_quarter)
+    print(f"  -> Placing {total_hours_this_quarter} dates, topics, homework starting from {quarter_topic_start_index}")
+    quarter_topics = subject.topics[quarter_topic_start_index:quarter_topic_start_index+quarter_topic_end_index]
+    quarter_hw = subject.homework[quarter_topic_start_index:quarter_topic_start_index+quarter_topic_end_index]
 
     for idx, date in enumerate(quarter_dates):
         sheet.cell(row=config.start_row + idx, column=dates_start_col, value=date[:5])
@@ -233,16 +303,17 @@ def quarter(
         sheet.cell(row=config.start_row + idx, column=topics_start_col+1, value=hw)
 
     if quarter_num == 4:
-        yearly_grade_col = quarter_grades_start_col + config.quarter_to_dates_offset - 3
+        yearly_grade_col = quarter_grade_start_col + config.quarter_to_dates_offset - 3
         print(f"     -> quarter 4 must have yearly grades")
-        for idx, grade in enumerate(split_grades[4]):
-            sheet.cell(row=config.start_row + idx, column=yearly_grade_col, value=grade)
+        for idx, grade in enumerate(filtered_split_grades[4]):
+            pass_fail_text = str(grade)
+            if grade == 1:
+                pass_fail_text = "есп" if current_class.is_kz else "зач"
+            sheet.cell(row=config.start_row + idx, column=yearly_grade_col, value=pass_fail_text)
         if subject.has_exam:
-            # print(split_grades[5])
-            # print(split_grades[6])
-            for idx, grade in enumerate(split_grades[5]):
+            for idx, grade in enumerate(filtered_split_grades[5]):
                 sheet.cell(row=config.start_row + idx, column=yearly_grade_col+1, value=grade)
-            for idx, grade in enumerate(split_grades[6]):
+            for idx, grade in enumerate(filtered_split_grades[6]):
                 sheet.cell(row=config.start_row + idx, column=yearly_grade_col+2, value=grade)
 
     # --- Daily Grade Generation Logic ---
@@ -257,23 +328,24 @@ def quarter(
             sheet.cell(row=config.months_row, column=daily_grades_start_col + idx, value=month)
     print(f"  -> Extended the table by {total_hours_this_quarter} columns")
 
+    if subject.name in config.no_grades:
+        print(f"subject {subject.name} has no grades")
+        return
+
     num_grades_to_place = int(total_hours_this_quarter * config.daily_grade_density)
+    available_cols = list(range(daily_grades_start_col, quarter_grade_start_col + total_hours_this_quarter - 1))
 
-    available_cols = list(range(daily_grades_start_col, quarter_grades_start_col + total_hours_this_quarter - 1))
-
-    print(len(split_grades[quarter_num-1]))
     for idx, row in df.iterrows():
         bonus = row['Penalty/Bonus Applied']
 
         quarter_index = quarter_num-1
-        if bonus == 0:
+        if bonus == 0 and subject.hours() == 1:
             if quarter_num == 1 or quarter_num == 3:
                 quarter_index += 1  # do not skip for blank or pass/fail grades, use next split grades instead
             else:
                 continue
 
-        # print(f"   quarter = {quarter_index}, and index is {idx}: quarter_grades = {split_grades[quarter_index]}")
-        distribution = config.get_daily_grade_distribution(bonus, split_grades[quarter_index][idx])
+        distribution = config.get_daily_grade_distribution(bonus, filtered_split_grades[quarter_index][idx])
         grades, weights = zip(*distribution.items())
         cols_to_fill = random.sample(available_cols, num_grades_to_place)
 

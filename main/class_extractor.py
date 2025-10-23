@@ -10,7 +10,7 @@ def process_class_sheet(
         xls,
         sheet_name,
         all_classes_dict: Dict[str, Class],
-        target_class: str = ""
+        target_class: str = "",
 ):
     if sheet_name != target_class and target_class != "":
         return
@@ -22,16 +22,21 @@ def process_class_sheet(
         print(f"# Skipping sheet '{sheet_name}' - it does not have the expected format.")
         return
 
+    genders_col_name = df.columns[0]
     student_col_name = df.columns[1]
     subject_col_names = df.columns[3:]
     df[student_col_name] = df[student_col_name].ffill()
     data_df = df.dropna(subset=[student_col_name]).copy()
-    student_list = data_df[student_col_name].unique().tolist()
+
+    unique_student_df = data_df.drop_duplicates(subset=[student_col_name])
+    student_list = unique_student_df[student_col_name].tolist()
     if not student_list:
         return
 
+    gender_list = unique_student_df[genders_col_name].notna().tolist()
     print("\n# List of student names")
     print(f"student_names_{sheet_name.replace(' ', '_')} = {student_list}")
+    print(f"genders_{sheet_name.replace(' ', '_')} = {gender_list}")
     subjects_grades_dict = {}
     for subject in subject_col_names:
         if 'Unnamed' in str(subject):
@@ -48,7 +53,7 @@ def process_class_sheet(
 
     clean_class = all_classes_dict[sheet_name]
     clean_class.students = student_list
-    clean_class.is_kz = any(sheet_name.endswith(c) for c in ('A', 'a', '8B', '8b'))
+    clean_class.genders = gender_list
 
     print("\n# Dictionary of subjects and their grade strings")
     print(f"subjects_{sheet_name.replace(' ', '_')} = {{")
@@ -70,6 +75,9 @@ def process_class_sheet(
 def check_exam_grade(grades: str, class_name):
     class_number_str = re.match(r'^\d+', class_name).group(0)
     class_number = int(class_number_str)
+    for grade in grades:
+        if grade == '1':
+            return False
     if grades[6] != '0' and class_number >= 5:
         print("has exam")
         return True

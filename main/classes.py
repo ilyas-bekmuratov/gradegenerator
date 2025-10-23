@@ -26,6 +26,7 @@ class Class:
         self.name = name
         self.subjects: Dict[str, Subject] = subjects
         self.students: List[str] = []
+        self.genders: List[bool] = []
 
         self.is_kz = False  # by default
 
