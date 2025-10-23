@@ -130,6 +130,8 @@ def get_month_from_date(date: str):
     month = date[3:5]
     if month == "9":
         return "Сентябрь"
+    if month == "09":
+        return "Сентябрь"
     if month == "10":
         return "Октябрь"
     if month == "11":

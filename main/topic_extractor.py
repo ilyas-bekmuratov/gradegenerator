@@ -69,7 +69,8 @@ def extract_topics_and_hw(
                             class_object.subjects,
                             file_path,
                             normalized_subject_name,
-                            class_name_key)
+                            class_name_key,
+                            is_dod)
 
         except Exception as e:
             print(f"# ERROR: Could not process file '{file_path.name}'. Reason: {e}")
@@ -79,7 +80,8 @@ def set_data_to_subject(
         subjects_for_this_class,
         file_path,
         normalized_subject_name,
-        target_class_name
+        target_class_name,
+        is_dod: bool = False
 ):
     if not subjects_for_this_class:
         print(f"# WARNING: Could not find a matching class for topics file '{file_path.name}'. Skip.")
@@ -96,7 +98,7 @@ def set_data_to_subject(
     all_topics = []
     all_homework = []
 
-    start_row_index = 4  # Excel row 5 is 0-indexed as 4
+    start_row_index = 8 if is_dod else 4 # Excel row 5 is 0-indexed as 4
 
     for sheet_name in xls.sheet_names:
         df = pd.read_excel(xls, sheet_name=sheet_name, header=None)
@@ -110,9 +112,14 @@ def set_data_to_subject(
             continue
 
         for index, row in df.iloc[start_row_index:].iterrows():
-            topic_val = row.iloc[1]  # Column B (index 1) = Topic
-            hw_val = row.iloc[2]  # Column C (index 2) = Homework
-            hours_val = row.iloc[3]  # Column D (index 3) = Hours
+            if not is_dod:
+                topic_val = row.iloc[1]  # Column B (index 1) = Topic
+                hw_val = row.iloc[2]  # Column C (index 2) = Homework
+                hours_val = row.iloc[3]  # Column D (index 3) = Hours
+            else:
+                topic_val = row.iloc[2]  # Column B (index 1) = Topic
+                hw_val = row.iloc[3]  # Column C (index 2) = Homework
+                hours_val = row.iloc[4]  # Column D (index 3) = Hours
 
             # If the topic cell is empty, we assume it's the end of the list
             if pd.isna(topic_val) or str(topic_val).strip() == "":

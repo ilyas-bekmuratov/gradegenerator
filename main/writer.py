@@ -5,90 +5,61 @@ from copy import copy
 
 
 def extend_day_columns(sheet, num_copies, is_last_quarter=False, has_exam=False, is_dod=False):
-    daily_grade_styles, daily_grade_width = read_styles_and_width(sheet, config.daily_grade_col)
+    daily_grade_col_idx = column_index_from_string(config.daily_grade_col)
+    max_col_letter = config.dod_hw_col if is_dod else config.hw_col
+    max_col = column_index_from_string(max_col_letter)
+    styles_widths = {}
+    for col_idx in range(daily_grade_col_idx, max_col + 1):
+        col_letter = get_column_letter(col_idx)
+        styles_widths[col_idx] = read_styles_and_width(sheet, col_letter)
 
-    col_letter = config.dod_date_col if is_dod else config.date_col
-    date_styles, date_width = read_styles_and_width(sheet, col_letter)
-
-    col_letter = config.dod_topic_col if is_dod else config.topic_col
-    topic_styles, topic_width = read_styles_and_width(sheet, col_letter)
-
-    col_letter = config.dod_hw_col if is_dod else config.hw_col
-    hw_styles, hw_width = read_styles_and_width(sheet, col_letter)
-
-    col_letter = config.dod_grade_col if is_dod else config.quarter_grade_col
-    quarter_styles, quarter_grade_width = read_styles_and_width(sheet, col_letter)
+    print(f"   styles_widths uses columns = {list(styles_widths.keys())}")
 
     print_widths(sheet, "\ninitial")
-    daily_grade_col_idx = column_index_from_string(config.daily_grade_col)
-    col_idx = column_index_from_string(col_letter)
     print(f"merged ranges = {list(sheet.merged_cells.ranges)}")
 
-    quarter_to_dates_offset = 1 if is_dod else config.quarter_to_dates_offset
-    amount_cols_to_delete = 0
-    if not is_last_quarter:
-        print("      -> not the last quarter removed 3 columns")
-        amount_cols_to_delete = 3  # delete the final grade, exam, and summary grade columns
-    elif not has_exam:
-        print("      -> has no exam, removed 2 columns")
-        amount_cols_to_delete = 2  # delete the exam and summary grade columns
+    yearly_grade_idx = column_index_from_string(config.yearly_grade_col)
+    cols_to_delete = []
+    if not is_dod:
+        if not is_last_quarter:  # delete the final grade, exam, and summary grade columns
+            print("      -> not the last quarter removed 3 columns")
+            cols_to_delete = [yearly_grade_idx,
+                              yearly_grade_idx + 1,
+                              yearly_grade_idx + 2]
+        elif not has_exam:  # delete the exam and summary grade columns
+            print("      -> has no exam, removed 2 columns")
+            cols_to_delete = [yearly_grade_idx + 1,
+                              yearly_grade_idx + 2]
 
-    if is_dod:
-        amount_cols_to_delete = 0
+    new_merges = get_merges_to_restore(cols_to_delete, sheet, num_copies, is_last_quarter, has_exam, is_dod)
 
-    quarter_to_dates_offset -= amount_cols_to_delete
-    if amount_cols_to_delete > 0:
-        sheet.delete_cols(col_idx + quarter_to_dates_offset, amount=amount_cols_to_delete)
-    print_widths(sheet, f"after deletion of {amount_cols_to_delete} columns at index {col_idx + quarter_to_dates_offset}")
-
-    new_merges = []
-    for merged_range in list(sheet.merged_cells.ranges):
-        if daily_grade_col_idx > merged_range.min_col:
-            continue
-        try:
-            sheet.unmerge_cells(str(merged_range))
-
-            new_min_col = merged_range.min_col + num_copies - 1
-            new_max_col = merged_range.max_col + num_copies - 1
-            new_range_str = (f"{get_column_letter(new_min_col)}{merged_range.min_row}" +
-                             f":{get_column_letter(new_max_col)}{merged_range.max_row}")
-            new_merges.append(new_range_str)
-        except Exception as e:
-            print(f"warning during merge manipulation: {e}")
-
-    print(f"merges to restore = {new_merges}")
+    sheet.delete_cols(cols_to_delete[0], len(cols_to_delete))
+    for col in cols_to_delete:
+        del styles_widths[col]
+    print_widths(sheet, f"after deletion of {len(cols_to_delete)} columns at index {yearly_grade_idx}")
+    print(f"   after deletion styles_widths uses columns = {list(styles_widths.keys())}")
 
     sheet.insert_cols(daily_grade_col_idx, num_copies - 1)
     print_widths(sheet, f"after insertion of {num_copies - 1} columns")
 
-    col_idx = daily_grade_col_idx
-    final_idx = col_idx + num_copies
-    while col_idx < final_idx:
+    for col_idx in range(daily_grade_col_idx, daily_grade_col_idx + num_copies):
         current_col_letter = get_column_letter(col_idx)
-        sheet.column_dimensions[current_col_letter].width = daily_grade_width
-        for row_idx, style_array in daily_grade_styles.items():
+        sheet.column_dimensions[current_col_letter].custom_width = True
+        styles, sheet.column_dimensions[current_col_letter].width = styles_widths[daily_grade_col_idx]
+        for row_idx, style_array in styles.items():
             sheet.cell(row=row_idx, column=col_idx)._style = style_array
-        col_idx += 1
 
-    i = 0
-    final_idx = final_idx + quarter_to_dates_offset
-    while col_idx < final_idx:
+    end_index = max_col + num_copies - len(cols_to_delete)
+    for col_idx in range(daily_grade_col_idx + num_copies, end_index):
         current_col_letter = get_column_letter(col_idx)
-        sheet.column_dimensions[current_col_letter].width = quarter_grade_width
-        col_idx += 1
-        i += 1
-
-    sheet.column_dimensions[get_column_letter(col_idx)].width = date_width
-    for row_idx, style_array in date_styles.items():
-        sheet.cell(row=row_idx, column=col_idx)._style = style_array
-    col_idx += 1
-    sheet.column_dimensions[get_column_letter(col_idx)].width = topic_width
-    for row_idx, style_array in topic_styles.items():
-        sheet.cell(row=row_idx, column=col_idx)._style = style_array
-    col_idx += 1
-    sheet.column_dimensions[get_column_letter(col_idx)].width = hw_width
-    for row_idx, style_array in hw_styles.items():
-        sheet.cell(row=row_idx, column=col_idx)._style = style_array
+        sheet.column_dimensions[current_col_letter].custom_width = True
+        index_to_get_styles = col_idx - num_copies + 1
+        if index_to_get_styles >= min(cols_to_delete):
+            index_to_get_styles += len(cols_to_delete)
+        print(f"   index_to_get_styles is {index_to_get_styles} is applied to {current_col_letter}")
+        styles, sheet.column_dimensions[current_col_letter].width = styles_widths[index_to_get_styles]
+        for row_idx, style_array in styles.items():
+            sheet.cell(row=row_idx, column=col_idx)._style = style_array
 
     for merge_str in new_merges:
         sheet.merge_cells(merge_str)
@@ -137,6 +108,33 @@ def test(source_file, output_file, num_copies):
 
     # workbook.save(output_file)
     print(f"\nSuccessfully created '{output_file}' with {num_copies} formatted columns.")
+
+
+def get_merges_to_restore(cols_to_delete, sheet, num_copies, is_last_quarter=False, has_exam=False, is_dod=False):
+    daily_grade_col_idx = column_index_from_string(config.daily_grade_col)
+    new_merges = []
+    dates_idx = 1 if is_dod else column_index_from_string(config.yearly_grade_col)
+
+    for merged_range in list(sheet.merged_cells.ranges):
+        if daily_grade_col_idx > merged_range.min_col:
+            continue
+
+        sheet.unmerge_cells(str(merged_range))
+        if merged_range.min_col in cols_to_delete or merged_range.max_col in cols_to_delete:
+            continue
+        try:
+            offset = -1
+            if merged_range.min_col >= cols_to_delete[0] or merged_range.max_col >= cols_to_delete[-1]:
+                offset -= len(cols_to_delete)
+            new_min_col = merged_range.min_col + num_copies + offset
+            new_max_col = merged_range.max_col + num_copies + offset
+            new_range_str = (f"{get_column_letter(new_min_col)}{merged_range.min_row}" +
+                             f":{get_column_letter(new_max_col)}{merged_range.max_row}")
+            new_merges.append(new_range_str)
+        except Exception as e:
+            print(f"warning during merge manipulation: {e}")
+
+    return new_merges
 
 
 if __name__ == "__main__":
