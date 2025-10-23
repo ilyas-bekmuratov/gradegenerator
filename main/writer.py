@@ -14,6 +14,7 @@ def extend_day_columns(sheet, num_copies, is_last_quarter=False, has_exam=False,
     print_widths(sheet, "\ninitial")
     daily_grade_col_idx = column_index_from_string(config.daily_grade_col)
     col_idx = column_index_from_string(col_letter)
+    print(f"merged ranges = {list(sheet.merged_cells.ranges)}")
 
     quarter_to_dates_offset = config.quarter_to_dates_offset
     amount_cols_to_delete = 0
