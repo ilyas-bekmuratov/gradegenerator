@@ -6,17 +6,25 @@ from copy import copy
 
 def extend_day_columns(sheet, num_copies, is_last_quarter=False, has_exam=False, is_dod=False):
     daily_grade_styles, daily_grade_width = read_styles_and_width(sheet, config.daily_grade_col)
+
+    col_letter = config.dod_date_col if is_dod else config.date_col
+    date_styles, date_width = read_styles_and_width(sheet, col_letter)
+
+    col_letter = config.dod_topic_col if is_dod else config.topic_col
+    topic_styles, topic_width = read_styles_and_width(sheet, col_letter)
+
+    col_letter = config.dod_hw_col if is_dod else config.hw_col
+    hw_styles, hw_width = read_styles_and_width(sheet, col_letter)
+
     col_letter = config.dod_grade_col if is_dod else config.quarter_grade_col
     quarter_styles, quarter_grade_width = read_styles_and_width(sheet, col_letter)
-    date_styles, date_width = read_styles_and_width(sheet, config.date_col)
-    topic_hw_styles, topic_hw_width = read_styles_and_width(sheet, config.topic_col)
 
     print_widths(sheet, "\ninitial")
     daily_grade_col_idx = column_index_from_string(config.daily_grade_col)
     col_idx = column_index_from_string(col_letter)
     print(f"merged ranges = {list(sheet.merged_cells.ranges)}")
 
-    quarter_to_dates_offset = config.quarter_to_dates_offset
+    quarter_to_dates_offset = 1 if is_dod else config.quarter_to_dates_offset
     amount_cols_to_delete = 0
     if not is_last_quarter:
         print("      -> not the last quarter removed 3 columns")
@@ -24,6 +32,9 @@ def extend_day_columns(sheet, num_copies, is_last_quarter=False, has_exam=False,
     elif not has_exam:
         print("      -> has no exam, removed 2 columns")
         amount_cols_to_delete = 2  # delete the exam and summary grade columns
+
+    if is_dod:
+        amount_cols_to_delete = 0
 
     quarter_to_dates_offset -= amount_cols_to_delete
     if amount_cols_to_delete > 0:
@@ -71,12 +82,12 @@ def extend_day_columns(sheet, num_copies, is_last_quarter=False, has_exam=False,
     for row_idx, style_array in date_styles.items():
         sheet.cell(row=row_idx, column=col_idx)._style = style_array
     col_idx += 1
-    sheet.column_dimensions[get_column_letter(col_idx)].width = topic_hw_width
-    for row_idx, style_array in topic_hw_styles.items():
+    sheet.column_dimensions[get_column_letter(col_idx)].width = topic_width
+    for row_idx, style_array in topic_styles.items():
         sheet.cell(row=row_idx, column=col_idx)._style = style_array
     col_idx += 1
-    sheet.column_dimensions[get_column_letter(col_idx)].width = topic_hw_width
-    for row_idx, style_array in topic_hw_styles.items():
+    sheet.column_dimensions[get_column_letter(col_idx)].width = hw_width
+    for row_idx, style_array in hw_styles.items():
         sheet.cell(row=row_idx, column=col_idx)._style = style_array
 
     for merge_str in new_merges:

@@ -66,13 +66,18 @@ daily_grade_col = "C"
 
 quarter_grade_col = "D"
 quarter_to_dates_offset = 12
-
+yearly_grade_col = "M"
+exam_grade_col = "N"
+final_grade_col = "O"
 date_col = "P"
 topic_col = "Q"
+hw_col = "R"
+
 
 dod_grade_col = "D"
 dod_date_col = "E"
 dod_topic_col = "F"
+dod_hw_col = "G"
 
 all_days_in_each_quarter = {
     1: ["nan", "nan", "nan", "nan", "01.09.2023",
