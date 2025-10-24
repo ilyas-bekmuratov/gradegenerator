@@ -58,7 +58,8 @@ def main(target_parallel="", is_dod=False):
             continue
         if target_parallel != "" and parallel != target_parallel:
             continue
-        output_filename = f"journal {parallel}.xlsx"
+        prefix = "dod "if is_dod else ""
+        output_filename = f"{prefix}journal {parallel}.xlsx"
         filepath = os.path.join(config.output_dir, output_filename)
         print(f"\n{'='*20} PROCESSING PARALLEL {parallel} {'='*20}")
 
