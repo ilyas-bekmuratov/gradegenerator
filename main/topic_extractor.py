@@ -98,7 +98,7 @@ def set_data_to_subject(
     all_topics = []
     all_homework = []
 
-    start_row_index = 8 if is_dod else 4 # Excel row 5 is 0-indexed as 4
+    start_row_index = 8 if is_dod else 4  # Excel row 5 is 0-indexed as 4
 
     for sheet_name in xls.sheet_names:
         df = pd.read_excel(xls, sheet_name=sheet_name, header=None)

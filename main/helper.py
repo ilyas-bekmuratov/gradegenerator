@@ -169,35 +169,37 @@ def test_subject(current_class: Class,
 
 def full_test():
     is_dod = False
-    class_str = "5A"
-    subjects_to_test = ["қазақ тілі"]
-    quarters_to_test = [4]
+    classes_to_test = ["4A", "4D", "4E", "4F"]
+    subjects_to_test = ["көркем еңбек"]
+    quarters_to_test = [1, 2, 3, 4]
 
-    all_classes: Dict[str, Class] = main.extract_all_data(class_str, is_dod=is_dod)
-    current_class: Class = all_classes[class_str]
-    class_number = int(class_str[0])
+    for class_str in classes_to_test:
+        all_classes: Dict[str, Class] = main.extract_all_data(class_str, is_dod=is_dod)
+        current_class: Class = all_classes[class_str]
+        class_number = int(class_str[0])
 
-    print(f"\nFULL-TEST   ->class {current_class.name} subjects: {subjects_to_test}")
-    template_path = config.template_path
-    output_path = str(path.join(config.output_dir, "test"+config.output_filename))
-    workbook = None
-    try:
-        workbook = openpyxl.load_workbook(template_path)
-    except FileNotFoundError:
-        print(f"Error: The template file '{template_path}' was not found.")
-        return
+        print(f"\nFULL-TEST   ->class {current_class.name} subjects: {subjects_to_test}")
+        template_path = config.template_path
+        output_path = str(path.join(config.output_dir, "test"+config.output_filename))
+        workbook = None
+        try:
+            workbook = openpyxl.load_workbook(template_path)
+        except FileNotFoundError:
+            print(f"Error: The template file '{template_path}' was not found.")
+            return
 
-    changes_made = False
-    for subject_name, subject in current_class.subjects.items():
-        if not subjects_to_test or (subject_name in subjects_to_test):
-            test_subject(current_class, class_number, workbook, subject_name, quarters_to_test, is_dod=is_dod)
-            changes_made = True
+        changes_made = False
+        for subject_name, subject in current_class.subjects.items():
+            if not subjects_to_test or (subject_name in subjects_to_test):
+                test_subject(current_class, class_number, workbook, subject_name, quarters_to_test, is_dod=is_dod)
+                changes_made = True
 
-    if changes_made:
-        workbook.remove(workbook[config.template_sheet_name])
-        workbook.remove(workbook[config.dod_template_sheet_name])
-        workbook.save(output_path)
+        if changes_made:
+            workbook.remove(workbook[config.template_sheet_name])
+            workbook.remove(workbook[config.dod_template_sheet_name])
+            workbook.save(output_path)
 
 
 if __name__ == "__main__":
     full_test()
+    # main.extract_all_data()

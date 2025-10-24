@@ -35,7 +35,7 @@ def extract_all_data(class_str: str = "", is_dod=False):
     return all_classes_dict
 
 
-def main(is_dod=False):
+def main(target_parallel="", is_dod=False):
     all_days_in_year = config.all_days_in_each_quarter
     # all_days_in_year = timetable_extractor.extract_days()
     all_classes_dict = extract_all_data(is_dod=is_dod)
@@ -55,6 +55,8 @@ def main(is_dod=False):
     # --- Loop through each parallel group and create a separate file ---
     for parallel, classes_in_parallel in grouped_classes.items():
         if parallel == "1":
+            continue
+        if target_parallel != "" and parallel != target_parallel:
             continue
         output_filename = f"journal {parallel}.xlsx"
         filepath = os.path.join(config.output_dir, output_filename)
@@ -166,8 +168,6 @@ def quarter(
         # No filter, just use the original lists
         filtered_students = student_list
         filtered_split_grades = split_grades
-
-    # print(f"test:   filtered students: {filtered_students}\n   split grades {split_grades}\n   filtered grades {filtered_split_grades}")
 
     quarter_grades = filtered_split_grades[quarter_num - 1]
 
@@ -354,4 +354,4 @@ def quarter(
 
 
 if __name__ == "__main__":
-    main()
+    main(target_parallel="4")

@@ -167,7 +167,11 @@ def process_timetable_sheet(
             continue
         subjects_in_class = {}
         is_kaz = any(class_name.endswith(c) for c in ('A', 'a', '8B', '8b'))
-
+        match = re.match(r'^\d+', class_name)
+        parallel = 0
+        if match:
+            parallel = int(match.group(0))
+            # print(f"parallel is {parallel}")
         # A week has 5 days
         for day_index in range(5):  # 0 for Monday, 1 for Tuesday, ...
             # Calculate the column range for the current day
@@ -192,7 +196,7 @@ def process_timetable_sheet(
                 is_art = False
                 for art in config.art:
                     if art in normalized_name:
-                        is_art = True
+                        is_art = parallel >= 5
                         break
                 boys_subject_name = normalized_name+" "+config.art_boys[is_kaz]
                 girls_subject_name = normalized_name+" "+config.art_girls[is_kaz]
@@ -206,6 +210,7 @@ def process_timetable_sheet(
                         subjects_in_class[boys_subject_name] = boys_subject
                         subjects_in_class[girls_subject_name] = girls_subject
                     elif not is_art:
+                        # print(f"parallel is {parallel}")
                         subject = Subject(name=normalized_name, teacher=normalized_teacher)
                         subjects_in_class[normalized_name] = subject
 
