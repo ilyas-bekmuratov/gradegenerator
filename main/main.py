@@ -30,7 +30,6 @@ from classes import Class, Subject
 
 def extract_all_data(class_str: str = "", is_dod=False):
     all_classes_dict = timetable_extractor.extract_class_subjects(class_name=class_str, is_dod=is_dod)
-    print(f"class {class_str} has subjects: {all_classes_dict[class_str].subjects.values()}")
     topic_extractor.extract_all_topics_and_hw(all_classes_dict, class_name=class_str, is_dod=is_dod)
     class_extractor.extract_grades_and_classes(all_classes_dict, class_name=class_str)
     return all_classes_dict

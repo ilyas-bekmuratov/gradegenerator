@@ -26,6 +26,7 @@ def process_class_sheet(
     student_col_name = df.columns[1]
     subject_col_names = df.columns[3:]
     df[student_col_name] = df[student_col_name].ffill()
+    df[student_col_name] = df[student_col_name].astype(str).str.strip()
     data_df = df.dropna(subset=[student_col_name]).copy()
 
     unique_student_df = data_df.drop_duplicates(subset=[student_col_name])

@@ -77,7 +77,7 @@ def get_days_this_quarter(
         return []
 
     days_this_quarter: List[str] = []
-    print(f"getting days for {subject.name} for quarter {quarter_num}")
+    # print(f"getting days for {subject.name} for quarter {quarter_num}")
     for idx, date in enumerate(all_days_in_quarters[quarter_num]):
         if date == "nan":
             continue
@@ -171,7 +171,7 @@ def full_test():
     is_dod = False
     class_str = "5A"
     subjects_to_test = ["қазақ тілі"]
-    quarters_to_test = [1]
+    quarters_to_test = [4]
 
     all_classes: Dict[str, Class] = main.extract_all_data(class_str, is_dod=is_dod)
     current_class: Class = all_classes[class_str]
@@ -194,7 +194,7 @@ def full_test():
             changes_made = True
 
     if changes_made:
-        # workbook.remove(workbook[config.template_sheet_name])
+        workbook.remove(workbook[config.template_sheet_name])
         workbook.remove(workbook[config.dod_template_sheet_name])
         workbook.save(output_path)
 
