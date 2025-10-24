@@ -10,9 +10,15 @@ def extend_day_columns(sheet, num_copies, is_last_quarter=False, has_exam=False,
     max_col_letter = config.dod_hw_col if is_dod else config.hw_col
     max_col = column_index_from_string(max_col_letter)
     styles_widths = {}
+    last_real_width = 13.0
     for col_idx in range(daily_grade_col_idx, max_col + 1):
         col_letter = get_column_letter(col_idx)
-        styles_widths[col_idx] = read_styles_and_width(sheet, col_letter)
+        style, width = read_styles_and_width(sheet, col_letter)
+        if width == 13.0:
+            width = last_real_width
+        else:
+            last_real_width = width
+        styles_widths[col_idx] = style, width
 
     # print(f"   styles_widths uses columns = {list(styles_widths.keys())}")
 

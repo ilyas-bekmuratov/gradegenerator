@@ -169,7 +169,7 @@ def test_subject(current_class: Class,
 
 def full_test():
     is_dod = False
-    classes_to_test = ["4A", "4D", "4E", "4F"]
+    classes_to_test = ["4A"]
     subjects_to_test = ["көркем еңбек"]
     quarters_to_test = [1, 2, 3, 4]
 

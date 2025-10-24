@@ -354,4 +354,4 @@ def quarter(
 
 
 if __name__ == "__main__":
-    main(target_parallel="4")
+    main()
