@@ -128,7 +128,10 @@ def quarter(
     chrome_length = len(f"{current_class.name} -  - Q{quarter_num}")
     max_subject_len = 31 - chrome_length
     short_subject_name = subject.name[:max_subject_len] if len(subject.name) > max_subject_len else subject.name
-    output_sheet_name = f"{current_class.name} - {short_subject_name} - Q{quarter_num}"
+    if is_dod:
+        output_sheet_name = f"{current_class.name} - {short_subject_name}"
+    else:
+        output_sheet_name = f"{current_class.name} - {short_subject_name} - Q{quarter_num}"
 
     is_art = False
     for art in config.art:
@@ -140,6 +143,7 @@ def quarter(
     if is_boys_art and is_girls_art:
         print(f"Warning art subject {subject} has boys and girls mixed up")
 
+    is_pass_fail = False
     # Get the original full lists from the class object
     student_list = current_class.students
     gender_list = current_class.genders
@@ -169,7 +173,7 @@ def quarter(
         filtered_students = student_list
         filtered_split_grades = split_grades
 
-    quarter_grades = filtered_split_grades[quarter_num - 1]
+    quarter_grades = filtered_split_grades[4] if is_dod else filtered_split_grades[quarter_num - 1]
 
     skip_week = is_dod and subject.name in config.two_per_month
     if is_dod:
@@ -179,9 +183,12 @@ def quarter(
 
     total_hours_this_quarter = len(quarter_dates)
 
-    print(f"\n  -> quarter {quarter_num} has grades: {quarter_grades}")
+    if is_dod:
+        print(f"  -> dod subject uses yearly grades: {quarter_grades}")
+    else:
+        print(f"\n  -> quarter {quarter_num} has grades: {quarter_grades}")
     if total_hours_this_quarter == 0:
-        print(f"\n  -> Skipping Quarter {quarter_num} (no lessons).\n")
+        print(f"\n     -> Skipping Quarter {quarter_num} (no lessons).\n")
         return
 
     print(f"  -> Generating data for Quarter {quarter_num}'...")
@@ -194,6 +201,7 @@ def quarter(
             pass_fail_text = ""
             if grade == 1:
                 pass_fail_text = "есп" if current_class.is_kz else "зач"
+                is_pass_fail = True
 
             blank_data = {
                 "Input Grade": pass_fail_text,
@@ -207,8 +215,10 @@ def quarter(
             results.append(generated_data)
 
     if not results and subject.name not in config.no_grades:
+        print("  -> no results for a subject with grades. abort")
         return
     elif not results and subject.name in config.no_grades:
+        print("  -> using no grade template")
         blank_data = {
             "Input Grade": '',
             "СОр Scores (Midterms)": [''] * num_midterms_for_df,
@@ -266,9 +276,10 @@ def quarter(
     title = f"Наименование предмета: {subject.name.capitalize()} Преподаватель: {subject.teacher}"
     sheet.cell(row=subject_teacher_cell_row, column=subject_teacher_cell_col, value=title)
 
-    [quarter_num_cell_row, quarter_num_celll_col] = config.quarter_num_cell
-    quarter_text = f"Расчет оценки за {quarter_num}-четверть"
-    sheet.cell(row=quarter_num_cell_row, column=quarter_num_celll_col, value=quarter_text)
+    if not is_dod:
+        [quarter_num_cell_row, quarter_num_celll_col] = config.quarter_num_cell
+        quarter_text = f"Расчет оценки за {quarter_num}-четверть"
+        sheet.cell(row=quarter_num_cell_row, column=quarter_num_celll_col, value=quarter_text)
 
     rows = dataframe_to_rows(final_df, index=False, header=False)
     col_letter = config.dod_grade_col if is_dod else config.quarter_grade_col
@@ -279,18 +290,31 @@ def quarter(
             sheet.cell(row=r_idx, column=c_idx, value=value if not pd.isna(value) else None)
     print(f"  -> Wrote main grade data for {len(final_df)} students.")
 
+    overall_grade_col = column_index_from_string(config.dod_grade_col)
     date_col_letter = config.dod_date_col if is_dod else config.date_col
     dates_start_col = column_index_from_string(date_col_letter)
     topic_col_letter = config.dod_topic_col if is_dod else config.topic_col
     topics_start_col = column_index_from_string(topic_col_letter)
     daily_grades_start_col = column_index_from_string(config.daily_grade_col)
 
-    quarter_topic_start_index = helper.get_quarter_start_index(subject, quarter_num)
-    quarter_topic_end_index = min(len(subject.topics)//4, total_hours_this_quarter)
+    quarter_topic_start_index = 0 if is_dod \
+        else helper.get_quarter_start_index(subject, quarter_num)
+    quarter_topic_end_index = len(subject.topics) if is_dod \
+        else helper.get_quarter_start_index(subject, quarter_num + 1)
     # --- Topic and Homework Distribution Logic ---
-    print(f"  -> Placing {total_hours_this_quarter} dates, topics, homework starting from {quarter_topic_start_index}")
-    quarter_topics = subject.topics[quarter_topic_start_index:quarter_topic_start_index+quarter_topic_end_index]
-    quarter_hw = subject.homework[quarter_topic_start_index:quarter_topic_start_index+quarter_topic_end_index]
+    print(f"  -> Placing {total_hours_this_quarter} dates, topics and homework")
+    print(f"  -> starting from {quarter_topic_start_index} up to {quarter_topic_end_index}")
+
+    quarter_topics = subject.topics[quarter_topic_start_index:quarter_topic_end_index]
+    quarter_hw = subject.homework[quarter_topic_start_index:quarter_topic_end_index]
+
+    if is_dod:
+        for idx, grade in enumerate(quarter_grades):
+            pass_fail_text = ""
+            if grade == 1:
+                pass_fail_text = "есп" if current_class.is_kz else "зач"
+                is_pass_fail = True
+            sheet.cell(row=config.start_row + idx, column=overall_grade_col, value=pass_fail_text)
 
     for idx, date in enumerate(quarter_dates):
         sheet.cell(row=config.start_row + idx, column=dates_start_col, value=date[:5])
@@ -317,7 +341,7 @@ def quarter(
 
     # --- Daily Grade Generation Logic ---
     is_last_quarter = quarter_num == 4
-    sheet = writer.extend_day_columns(sheet, total_hours_this_quarter, is_last_quarter, subject.has_exam)
+    sheet = writer.extend_day_columns(sheet, total_hours_this_quarter, is_last_quarter, subject.has_exam, is_dod)
     month = ""
     for idx, date in enumerate(quarter_dates):
         sheet.cell(row=config.dates_row, column=daily_grades_start_col + idx, value=date[:2])
@@ -328,11 +352,15 @@ def quarter(
     print(f"  -> Extended the table by {total_hours_this_quarter} columns")
 
     if subject.name in config.no_grades:
-        print(f"subject {subject.name} has no grades")
+        print(f"     -> subject {subject.name} has no grades")
+        return
+    if is_pass_fail:
+        print(f"     -> subject {subject.name} is pass/fail subject")
         return
 
     num_grades_to_place = int(total_hours_this_quarter * config.daily_grade_density)
-    available_cols = list(range(daily_grades_start_col, quarter_grade_start_col + total_hours_this_quarter - 1))
+    daily_end_col_idx = quarter_grade_start_col + total_hours_this_quarter - config.daily_grade_offset - 1
+    available_cols = list(range(daily_grades_start_col, daily_end_col_idx))
 
     for idx, row in df.iterrows():
         bonus = row['Penalty/Bonus Applied']
@@ -354,4 +382,4 @@ def quarter(
 
 
 if __name__ == "__main__":
-    main()
+    main(is_dod=True)

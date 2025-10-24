@@ -5,7 +5,13 @@ import sys
 from copy import copy
 
 
-def extend_day_columns(sheet, num_copies, is_last_quarter=False, has_exam=False, is_dod=False):
+def extend_day_columns(
+        sheet,
+        num_copies,
+        is_last_quarter=False,
+        has_exam=False,
+        is_dod=False
+):
     daily_grade_col_idx = column_index_from_string(config.daily_grade_col)
     max_col_letter = config.dod_hw_col if is_dod else config.hw_col
     max_col = column_index_from_string(max_col_letter)

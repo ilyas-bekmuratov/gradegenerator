@@ -1,6 +1,6 @@
 ﻿import pandas as pd
 from classes import Subject, Class
-from typing import Dict, List
+from typing import Dict, List, Any
 import config
 import openpyxl
 import main
@@ -57,13 +57,17 @@ def get_dod_days(
             if hours_that_day == 0:
                 continue
 
-            if skip:
+            if skip_week and skip:
                 skip = not skip
                 continue
 
             for i in range(hours_that_day):
                 days.append(date)
 
+            if skip_week:
+                skip = not skip
+
+    print(f"     -> subject {subject} has {len(days)} days total, skip_week = {skip_week}")
     return days
 
 
@@ -76,6 +80,9 @@ def get_days_this_quarter(
         print("all_days_in_quarters empty")
         return []
 
+    valid_q = [1, 2, 3, 4]
+    if quarter_num not in valid_q:
+        return []
     days_this_quarter: List[str] = []
     # print(f"getting days for {subject.name} for quarter {quarter_num}")
     for idx, date in enumerate(all_days_in_quarters[quarter_num]):
@@ -95,17 +102,86 @@ def get_days_this_quarter(
     return days_this_quarter
 
 
+def split_by_proportion(list_to_split: List[Any],
+                        original_part_sizes: List[int]) -> List[List[Any]]:
+    # 1. Get the total lengths of both the original set and the new list
+    total_original_size = sum(original_part_sizes)
+    total_new_size = len(list_to_split)
+
+    if total_original_size == 0:
+        print("Error: Original part sizes cannot sum to zero.")
+        return []
+
+    # 2. Calculate the proportions of the original parts
+    proportions = [size / total_original_size for size in original_part_sizes]
+
+    # 3. Calculate the new integer sizes for the new list
+    new_sizes = []
+    running_total = 0
+
+    # We must round the first N-1 parts (i.e., the first 3)
+    # The last part (the 4th) is calculated by subtraction to ensure the
+    # total sum is exactly correct and we don't lose items to rounding.
+
+    num_parts = len(original_part_sizes)
+
+    for i in range(num_parts - 1):
+        # Calculate the ideal proportional size
+        ideal_size = total_new_size * proportions[i]
+
+        # Round to the nearest whole number
+        actual_size = round(ideal_size)
+
+        new_sizes.append(actual_size)
+        running_total += actual_size
+
+    # 4. Calculate the size of the last part
+    # This is the "remainder" and ensures the sum is perfect.
+    last_part_size = total_new_size - running_total
+    new_sizes.append(last_part_size)
+
+    # print(f"Original sizes: {original_part_sizes}")
+    # print(f"Calculated new sizes: {new_sizes}")
+    # print(f"Sum of new sizes: {sum(new_sizes)} (should be {total_new_size})\n")
+
+    # 5. Now, use the new_sizes to split the list
+    result_lists = []
+    current_index = 0
+
+    for size in new_sizes:
+        # Get the slice from the list
+        part = list_to_split[current_index: current_index + size]
+        result_lists.append(part)
+
+        # Move the index forward for the next slice
+        current_index += size
+
+    return result_lists
+
+
 def get_quarter_start_index(
         subject: Subject,
         quarter_num: int,
         all_days_in_quarters: Dict[int, List[str]] = config.all_days_in_each_quarter
 ) -> int:
+    if quarter_num == 5:
+        return len(subject.topics)
+
+    total = 0
+    for q in range(1, 5):
+        total += len(get_days_this_quarter(subject, q, all_days_in_quarters))
+    sizes: List[int] = []
+    for q in range(1, 5):
+        days_num = len(get_days_this_quarter(subject, q, all_days_in_quarters))
+        sizes.append(days_num)
+
+    topics_split = split_by_proportion(subject.topics, sizes)
+    # print(f"len(topics_split) = {len(topics_split)}")
     index = 0
-    index_from_quarter_of_all_topics = len(subject.topics) // 4
-    for q in range(1, quarter_num):
-        index_from_all = len(get_days_this_quarter(subject, q, all_days_in_quarters))
-        max_index_to_add = min(index_from_all, index_from_quarter_of_all_topics)
-        index += max_index_to_add
+    for q in range(quarter_num-1):
+        # print(q)
+        index += len(topics_split[q])
+    # print(f"quarter index = {index}")
     return index
 
 
@@ -165,12 +241,14 @@ def test_subject(current_class: Class,
     split_grades: list[list[int]] = split_string_by_pattern(current_subject.grades, split)
     for q in quarters_to_test:
         main.quarter(workbook, current_class, q, current_subject, split_grades, is_dod=is_dod)
+        if is_dod:
+            break
 
 
 def full_test():
-    is_dod = False
-    classes_to_test = ["4A"]
-    subjects_to_test = ["көркем еңбек"]
+    is_dod = True
+    classes_to_test = ["8D"]
+    subjects_to_test = ["глобальные компетенции", "классный час"]
     quarters_to_test = [1, 2, 3, 4]
 
     for class_str in classes_to_test:

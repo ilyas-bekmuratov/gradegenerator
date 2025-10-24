@@ -60,8 +60,8 @@ student_name_cell = [8, 2]
 dates_row = 7
 months_row = 3
 start_row = 8
-max_row = 44
-
+max_row = 62
+daily_grade_offset = 2
 daily_grade_col = "C"
 
 quarter_grade_col = "D"

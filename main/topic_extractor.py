@@ -5,6 +5,7 @@ from typing import Dict
 from pathlib import Path
 import re
 import timetable_extractor
+import helper
 
 
 def extract_all_topics_and_hw(
@@ -44,36 +45,32 @@ def extract_topics_and_hw(
 
     print(f"\n--- Extracting topics/homework from {folder_path_str} ---")
     for file_path in path.glob('*.xlsx'):
-        try:
-            filename_stem = file_path.stem  # "5 Алгебра"
+        filename_stem = file_path.stem  # "5 Алгебра"
 
-            # --- 1. Extract subject and class number from filename ---
-            match = re.match(r'^(\d+)\s+(.+)', filename_stem)
-            if not match:
-                print(f"# WARNING: Skipping topics file with unexpected name format: '{file_path.name}'")
-                continue
+        # --- 1. Extract subject and class number from filename ---
+        match = re.match(r'^(\d+)\s+(.+)', filename_stem)
+        if not match:
+            print(f"# WARNING: Skipping topics file with unexpected name format: '{file_path.name}'")
+            continue
 
-            class_num_str, subject_from_filename = match.groups()
-            normalized_subject_name = subject_from_filename.strip().lower()
+        class_num_str, subject_from_filename = match.groups()
+        normalized_subject_name = subject_from_filename.strip().lower()
 
-            # --- 2. Find the correct class.subjects dictionary to add topics to ---
-            # Find a class that starts with the number and matches the language context (Kaz/Rus)
-            for class_name_key, class_object in all_classes_dict.items():
-                if class_name_key.startswith(class_num_str):
-                    if target_class != "" and not target_class.startswith(class_num_str):
-                        continue
-                    is_class_key_kaz = any(class_name_key.endswith(c) for c in ('A', 'a', '8B', '8b'))
+        # --- 2. Find the correct class.subjects dictionary to add topics to ---
+        # Find a class that starts with the number and matches the language context (Kaz/Rus)
+        for class_name_key, class_object in all_classes_dict.items():
+            if class_name_key.startswith(class_num_str):
+                if target_class != "" and not target_class.startswith(class_num_str):
+                    continue
+                is_class_key_kaz = any(class_name_key.endswith(c) for c in ('A', 'a', '8B', '8b'))
 
-                    if (is_kaz and is_class_key_kaz) or (not is_kaz and not is_class_key_kaz):
-                        set_data_to_subject(
-                            class_object.subjects,
-                            file_path,
-                            normalized_subject_name,
-                            class_name_key,
-                            is_dod)
-
-        except Exception as e:
-            print(f"# ERROR: Could not process file '{file_path.name}'. Reason: {e}")
+                if (is_kaz and is_class_key_kaz) or (not is_kaz and not is_class_key_kaz):
+                    set_data_to_subject(
+                        class_object.subjects,
+                        file_path,
+                        normalized_subject_name,
+                        class_name_key,
+                        is_dod)
 
 
 def set_data_to_subject(
@@ -119,7 +116,7 @@ def set_data_to_subject(
             else:
                 topic_val = row.iloc[2]  # Column B (index 1) = Topic
                 hw_val = row.iloc[3]  # Column C (index 2) = Homework
-                hours_val = row.iloc[4]  # Column D (index 3) = Hours
+                hours_val = row.iloc[0]  # Column D (index 3) = Hours
 
             # If the topic cell is empty, we assume it's the end of the list
             if pd.isna(topic_val) or str(topic_val).strip() == "":
@@ -146,6 +143,12 @@ def set_data_to_subject(
     subject_obj.topics = all_topics
     subject_obj.homework = all_homework
     print(f"  -> class '{target_class_name}':'{normalized_subject_name}': {len(all_topics)} topics and {len(all_homework)} homeworks.")
+    total = 0
+    for q in range(1, 5):
+        total += len(helper.get_days_this_quarter(subject_obj, q))
+    if is_dod and normalized_subject_name in config.two_per_month:
+        total = total //2
+    print(f"  -> in total has {total} hours this year.")
 
 
 def test():
