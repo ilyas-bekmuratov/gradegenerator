@@ -192,7 +192,6 @@ def quarter(
         print(f"\n     -> Skipping Quarter {quarter_num} (no lessons).\n")
         return
 
-    print(f"  -> Generating data for Quarter {quarter_num}'...")
     results = []
 
     num_midterms_for_df = 1 if subject.hours() == 1 else config.num_midterms
@@ -212,6 +211,7 @@ def quarter(
             }
             results.append(blank_data)
         elif grade in config.grade_bands:
+            print(f"  -> Generating data for Quarter {quarter_num}'...")
             generated_data = gg.generate_plausible_grades(grade, subject, quarter_num)
             results.append(generated_data)
 

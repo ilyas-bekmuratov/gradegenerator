@@ -5,7 +5,7 @@ template_path = "template.xlsx"
 template_sheet_name = "temp"
 dod_template_sheet_name = "dod"
 
-no_grades = {"cынып сағаты", "классный час"}
+no_grades = {"сынып сағаты", "классный час"}
 two_per_month = {"глобальные компетенции", "жаhандық құзыреттілік"}
 art = {"художественный труд", "көркем еңбек"}
 art_girls = ["девочки", "қыздар"]

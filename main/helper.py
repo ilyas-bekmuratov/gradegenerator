@@ -247,8 +247,8 @@ def test_subject(current_class: Class,
 
 def full_test():
     is_dod = True
-    classes_to_test = ["8D"]
-    subjects_to_test = ["глобальные компетенции", "классный час"]
+    classes_to_test = ["3A"]
+    subjects_to_test = []
     quarters_to_test = [1, 2, 3, 4]
 
     for class_str in classes_to_test:
@@ -279,5 +279,6 @@ def full_test():
 
 
 if __name__ == "__main__":
+    # print("сынып сағаты" in config.no_grades)
     full_test()
-    # main.extract_all_data()
+    # main.extract_all_data(is_dod=True)
