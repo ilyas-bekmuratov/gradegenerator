@@ -54,7 +54,7 @@ def main(target_parallels: List[str], is_dod=False):
 
     # --- Loop through each parallel group and create a separate file ---
     for parallel, classes_in_parallel in grouped_classes.items():
-        if parallel == "1":
+        if parallel == "1" and not is_dod:
             continue
         if target_parallels != [] and parallel not in target_parallels:
             continue
@@ -405,5 +405,5 @@ def quarter(
 
 
 if __name__ == "__main__":
-    parallels = []
-    main(target_parallels=parallels, is_dod=True)
+    parallels = ["3", "4", "5", "6", "8", ]
+    main(target_parallels=parallels, is_dod=False)
