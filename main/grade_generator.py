@@ -13,8 +13,11 @@ def generate_plausible_grades(final_grade_mark, subject: Subject, quarter_num: i
     if subject.hours() == 1:
         local_num_midterms = 1  # Only 1 midterm
         # No final exam (СОч) in Q1 and Q3
-        if quarter_num in [1, 3]:
-            local_weights['so4'] = 0
+        # if quarter_num in [1, 3]:
+        local_weights['so4'] = 0
+
+    if subject.hours() == 2:
+        local_num_midterms = 2  # 2 midterms
 
     midterm_max_scores = local_max_scores[:local_num_midterms]
     so4_max_score = local_max_scores[-1]

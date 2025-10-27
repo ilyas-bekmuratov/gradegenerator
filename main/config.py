@@ -18,9 +18,15 @@ days_sheet_name = "4pmo"
 days_sheet_name_2pmo = "2pmo"
 
 timetable_path = "timetable.xlsx"
-dod_timetable_path = "dodtimetable.xlsx"
+dod_timetable_path = "dodschedule.xlsx"  # dodtimetable
 
-topic_paths = ["каз", "рус", "ДОДказ", "ДОДрус"]
+topic_paths = ["newkaz", "newrus", "ДОДказ", "ДОДрус"]
+kaz_exception_subject_name = {"казахский язык и литература", "казахский язык"}
+kaz_repeat_str = "Қайталау"
+rus_exception_subject_name = {"орыс тілі мен әдебиеті", "орыс тілі"}
+rus_repeat_str = "Повторение"
+eng_exception_subject_name = {"иностранный язык", "шетел тілі"}
+eng_repeat_str = "Review"
 
 grade_bands = {
         2: (0, 39.99),
@@ -61,7 +67,7 @@ dates_row = 7
 months_row = 3
 start_row = 8
 max_row = 62
-daily_grade_offset = 2
+daily_grade_offset = 3
 daily_grade_col = "C"
 
 quarter_grade_col = "D"

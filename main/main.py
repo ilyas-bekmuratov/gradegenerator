@@ -35,7 +35,7 @@ def extract_all_data(class_str: str = "", is_dod=False):
     return all_classes_dict
 
 
-def main(target_parallel="", is_dod=False):
+def main(target_parallels: List[str], is_dod=False):
     all_days_in_year = config.all_days_in_each_quarter
     # all_days_in_year = timetable_extractor.extract_days()
     all_classes_dict = extract_all_data(is_dod=is_dod)
@@ -56,7 +56,7 @@ def main(target_parallel="", is_dod=False):
     for parallel, classes_in_parallel in grouped_classes.items():
         if parallel == "1":
             continue
-        if target_parallel != "" and parallel != target_parallel:
+        if target_parallels != [] and parallel not in target_parallels:
             continue
         prefix = "dod "if is_dod else ""
         output_filename = f"{prefix}journal {parallel}.xlsx"
@@ -126,6 +126,8 @@ def quarter(
         all_days_in_each_quarter: Dict[int, List[str]] = config.all_days_in_each_quarter,
         is_dod=False
 ):
+    print(f"\n  -> Generating data for Quarter {quarter_num}'...")
+
     chrome_length = len(f"{current_class.name} -  - Q{quarter_num}")
     max_subject_len = 31 - chrome_length
     short_subject_name = subject.name[:max_subject_len] if len(subject.name) > max_subject_len else subject.name
@@ -176,7 +178,11 @@ def quarter(
 
     quarter_grades = filtered_split_grades[4] if is_dod else filtered_split_grades[quarter_num - 1]
 
-    skip_week = is_dod and subject.name in config.two_per_month
+    match = re.match(r'^\d+', current_class.name)
+    parallel = 0
+    if match:
+        parallel = int(match.group(0))
+    skip_week = is_dod and (subject.name in config.two_per_month) and (parallel < 9)
     if is_dod:
         quarter_dates = helper.get_dod_days(subject, all_days_in_each_quarter, skip_week)
     else:
@@ -187,21 +193,25 @@ def quarter(
     if is_dod:
         print(f"  -> dod subject uses yearly grades: {quarter_grades}")
     else:
-        print(f"\n  -> quarter {quarter_num} has grades: {quarter_grades}")
+        print(f"  -> quarter {quarter_num} has grades: {quarter_grades}")
     if total_hours_this_quarter == 0:
         print(f"\n     -> Skipping Quarter {quarter_num} (no lessons).\n")
         return
 
     results = []
 
-    num_midterms_for_df = 1 if subject.hours() == 1 else config.num_midterms
+    num_midterms_for_df = config.num_midterms
+    if subject.hours() == 1:
+        num_midterms_for_df = 1
+    elif subject.hours() == 2:
+        num_midterms_for_df = 2
 
     for grade in quarter_grades:
-        if grade in [0, 1]:  # Handle blank and pass/fail
+        if grade in [1]:  # Handle blank and pass/fail
+            is_pass_fail = True
             pass_fail_text = ""
             if grade == 1:
                 pass_fail_text = "есп" if current_class.is_kz else "зач"
-                is_pass_fail = True
 
             blank_data = {
                 "Input Grade": pass_fail_text,
@@ -211,7 +221,6 @@ def quarter(
             }
             results.append(blank_data)
         elif grade in config.grade_bands:
-            print(f"  -> Generating data for Quarter {quarter_num}'...")
             generated_data = gg.generate_plausible_grades(grade, subject, quarter_num)
             results.append(generated_data)
 
@@ -225,6 +234,11 @@ def quarter(
             "СОр Scores (Midterms)": [''] * num_midterms_for_df,
             "СОч Score (Final)": '', "Adjusted СОр %": '', "Actual СОч %": '',
             "Generated Total %": '', "Penalty/Bonus Applied": 0
+        }
+        results.append(blank_data)
+    elif not results and subject.name not in config.no_grades:
+        blank_data = {
+            "Penalty/Bonus Applied": 0
         }
         results.append(blank_data)
 
@@ -286,10 +300,11 @@ def quarter(
     col_letter = config.dod_grade_col if is_dod else config.quarter_grade_col
     quarter_grade_start_col = column_index_from_string(col_letter)
 
-    for r_idx, row_data in enumerate(rows, config.start_row):
-        for c_idx, value in enumerate(row_data, quarter_grade_start_col):
-            sheet.cell(row=r_idx, column=c_idx, value=value if not pd.isna(value) else None)
-    print(f"  -> Wrote main grade data for {len(final_df)} students.")
+    if not is_dod:
+        for r_idx, row_data in enumerate(rows, config.start_row):
+            for c_idx, value in enumerate(row_data, quarter_grade_start_col):
+                sheet.cell(row=r_idx, column=c_idx, value=value if not pd.isna(value) else None)
+        print(f"  -> Wrote main grade data for {len(final_df)} students.")
 
     overall_grade_col = column_index_from_string(config.dod_grade_col)
     date_col_letter = config.dod_date_col if is_dod else config.date_col
@@ -309,10 +324,15 @@ def quarter(
     quarter_topics = subject.topics[quarter_topic_start_index:quarter_topic_end_index]
     quarter_hw = subject.homework[quarter_topic_start_index:quarter_topic_end_index]
 
+    repeat_topic_str = helper.get_repeat_str(subject.name, current_class.is_kz)
+    if quarter_topic_end_index - quarter_topic_start_index < total_hours_this_quarter:
+        for idx in range(quarter_topic_end_index - quarter_topic_start_index, total_hours_this_quarter):
+            quarter_topics.append(repeat_topic_str)
+
     if is_dod:
         for idx, grade in enumerate(quarter_grades):
             pass_fail_text = ""
-            if grade == 1:
+            if grade in [1]:
                 pass_fail_text = "есп" if current_class.is_kz else "зач"
                 is_pass_fail = True
             sheet.cell(row=config.start_row + idx, column=overall_grade_col, value=pass_fail_text)
@@ -363,6 +383,7 @@ def quarter(
     daily_end_col_idx = quarter_grade_start_col + total_hours_this_quarter - config.daily_grade_offset - 1
     available_cols = list(range(daily_grades_start_col, daily_end_col_idx))
 
+    print("reached daily grade generation")
     for idx, row in df.iterrows():
         bonus = row['Penalty/Bonus Applied']
 
@@ -371,16 +392,18 @@ def quarter(
             if quarter_num == 1 or quarter_num == 3:
                 quarter_index += 1  # do not skip for blank or pass/fail grades, use next split grades instead
             else:
+                # print(f"      skip row {idx}")
                 continue
 
         distribution = config.get_daily_grade_distribution(bonus, filtered_split_grades[quarter_index][idx])
         grades, weights = zip(*distribution.items())
         cols_to_fill = random.sample(available_cols, num_grades_to_place)
-
+        # print(f"fill columns {cols_to_fill} with {num_grades_to_place}")
         for col in cols_to_fill:
             generated_grade = random.choices(grades, weights=weights, k=1)[0]
             sheet.cell(row=student_start_row + idx, column=col, value=generated_grade)
 
 
 if __name__ == "__main__":
-    main(is_dod=True)
+    parallels = []
+    main(target_parallels=parallels, is_dod=True)

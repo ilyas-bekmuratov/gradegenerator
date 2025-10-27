@@ -229,6 +229,17 @@ def get_month_from_date(date: str):
     return month
 
 
+def get_repeat_str(subject_name: str, is_kaz: bool) -> str:
+    repeat_str = config.kaz_repeat_str if is_kaz else config.rus_repeat_str
+    if subject_name in config.eng_exception_subject_name:
+        repeat_str = config.eng_repeat_str
+    elif subject_name in config.kaz_exception_subject_name:
+        repeat_str = config.kaz_repeat_str
+    elif subject_name in config.rus_exception_subject_name:
+        repeat_str = config.rus_repeat_str
+    return repeat_str
+
+
 def test_subject(current_class: Class,
                  class_number: int,
                  workbook,
@@ -246,8 +257,8 @@ def test_subject(current_class: Class,
 
 
 def full_test():
-    is_dod = True
-    classes_to_test = ["3A"]
+    is_dod = False
+    classes_to_test = ["4D"]
     subjects_to_test = []
     quarters_to_test = [1, 2, 3, 4]
 
@@ -269,6 +280,7 @@ def full_test():
         changes_made = False
         for subject_name, subject in current_class.subjects.items():
             if not subjects_to_test or (subject_name in subjects_to_test):
+                print(f"\n--- Processing Subject: {subject_name} ({subject.hours()}h/w) for class {current_class.name} ---")
                 test_subject(current_class, class_number, workbook, subject_name, quarters_to_test, is_dod=is_dod)
                 changes_made = True
 
