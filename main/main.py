@@ -101,8 +101,8 @@ def process_class(
         is_dod=False
 ):
     for subject_name, subject in current_class.subjects.items():
-        if subject.hours()>1:
-            continue
+        # if subject.hours()>1:
+        #     continue
         print(f"\n--- Processing Subject: {subject_name} ({subject.hours()}h/w) for class {current_class.name} ---")
 
         class_number_str = re.match(r'^\d+', current_class.name).group(0)
@@ -209,7 +209,21 @@ def quarter(
         num_midterms_for_df = 2
 
     for grade in quarter_grades:
-        if grade in [1]:  # Handle blank and pass/fail
+        if grade in [0]:  # Handle blank
+
+            if is_dod:
+                blank_data = {
+                    "Penalty/Bonus Applied": 0
+                }
+            else:
+                blank_data = {
+                    "Input Grade": "",
+                    "СОр Scores (Midterms)": [''] * num_midterms_for_df,
+                    "СОч Score (Final)": '', "Adjusted СОр %": '', "Actual СОч %": '',
+                    "Generated Total %": '', "Penalty/Bonus Applied": 0
+                }
+            results.append(blank_data)
+        if grade in [1]:  # Handle pass/fail
             is_pass_fail = True
             pass_fail_text = ""
             if grade == 1:
@@ -397,6 +411,8 @@ def quarter(
                 # print(f"      skip row {idx}")
                 continue
 
+        if filtered_split_grades[quarter_index][idx] == 0:
+            continue
         distribution = config.get_daily_grade_distribution(bonus, filtered_split_grades[quarter_index][idx])
         grades, weights = zip(*distribution.items())
         cols_to_fill = random.sample(available_cols, num_grades_to_place)

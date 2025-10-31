@@ -280,8 +280,8 @@ def full_test():
         print(f"\nFULL-TEST   ->class {current_class.name} subjects: {subjects_to_test}")
 
         for subject_name, subject in current_class.subjects.items():
-            if subject.hours()>1:
-                continue
+            # if subject.hours()>1:
+            #     continue
             if not subjects_to_test or (subject_name in subjects_to_test):
                 print(f"\n--- Processing Subject: {subject_name} ({subject.hours()}h/w) for class {current_class.name} ---")
                 test_subject(current_class, class_number, workbook, subject_name, quarters_to_test, is_dod=is_dod)
