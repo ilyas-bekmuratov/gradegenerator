@@ -4,11 +4,11 @@ import config
 from classes import Subject
 
 
-def generate_plausible_grades(final_grade_mark, subject: Subject, quarter_num: int):
+def generate_plausible_grades(final_grade_mark, subject: Subject, quarter_num: int, is_beginner_class: bool):
     # --- Create local copies of settings to modify them based on rules ---
     local_num_midterms = config.num_midterms
     local_weights = config.weights.copy()
-    local_max_scores = config.max_scores.copy()
+    local_max_scores = config.max_scores_low.copy() if is_beginner_class else config.max_scores.copy()
 
     if subject.hours() == 1:
         local_num_midterms = 1  # Only 1 midterm

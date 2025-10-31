@@ -35,7 +35,7 @@ def extract_all_data(class_str: str = "", is_dod=False):
     return all_classes_dict
 
 
-def main(target_parallels: List[str], is_dod=False):
+def main(target_parallels: List[str], is_dod=False, skip_topics_hw=False):
     all_days_in_year = config.all_days_in_each_quarter
     # all_days_in_year = timetable_extractor.extract_days()
     all_classes_dict = extract_all_data(is_dod=is_dod)
@@ -81,7 +81,7 @@ def main(target_parallels: List[str], is_dod=False):
             continue
 
         for current_class in classes_in_parallel:
-            process_class(workbook, current_class, all_days_in_year, is_dod)
+            process_class(workbook, current_class, all_days_in_year, is_dod, skip_topics_hw=skip_topics_hw)
 
         try:
             print("\nCleaning up final workbook...")
@@ -98,11 +98,12 @@ def process_class(
         workbook,
         current_class: Class,
         all_days_in_year: Dict[int, List[str]],
-        is_dod=False
+        is_dod=False,
+        skip_topics_hw=False
 ):
     for subject_name, subject in current_class.subjects.items():
-        # if subject.hours()>1:
-        #     continue
+        if subject.hours()>1 and redo_1hpw:
+            continue
         print(f"\n--- Processing Subject: {subject_name} ({subject.hours()}h/w) for class {current_class.name} ---")
 
         class_number_str = re.match(r'^\d+', current_class.name).group(0)
@@ -114,7 +115,7 @@ def process_class(
         for i in range(4):
             quarter_num = i + 1
             print(split_grades[i])
-            quarter(workbook, current_class, quarter_num, subject, split_grades, all_days_in_year, is_dod)
+            quarter(workbook, current_class, quarter_num, subject, split_grades, all_days_in_year, is_dod, skip_topics_hw=skip_topics_hw)
             if is_dod:
                 break
 
@@ -126,7 +127,8 @@ def quarter(
         subject: Subject,
         split_grades: list[list[int]],
         all_days_in_each_quarter: Dict[int, List[str]] = config.all_days_in_each_quarter,
-        is_dod=False
+        is_dod=False,
+        skip_topics_hw=False
 ):
     print(f"\n  -> Generating data for Quarter {quarter_num}'...")
 
@@ -184,6 +186,7 @@ def quarter(
     parallel = 0
     if match:
         parallel = int(match.group(0))
+    is_beginner_class = parallel < 5
     skip_week = is_dod and (subject.name in config.two_per_month) and (parallel < 9)
     if is_dod:
         quarter_dates = helper.get_dod_days(subject, all_days_in_each_quarter, skip_week)
@@ -209,20 +212,19 @@ def quarter(
         num_midterms_for_df = 2
 
     for grade in quarter_grades:
-        if grade in [0]:  # Handle blank
-
-            if is_dod:
-                blank_data = {
-                    "Penalty/Bonus Applied": 0
-                }
-            else:
-                blank_data = {
-                    "Input Grade": "",
-                    "СОр Scores (Midterms)": [''] * num_midterms_for_df,
-                    "СОч Score (Final)": '', "Adjusted СОр %": '', "Actual СОч %": '',
-                    "Generated Total %": '', "Penalty/Bonus Applied": 0
-                }
-            results.append(blank_data)
+        # if grade in [0]:  # Handle blank no longer needed
+        #     if is_dod:
+        #         blank_data = {
+        #             "Penalty/Bonus Applied": 0
+        #         }
+        #     else:
+        #         blank_data = {
+        #             "Input Grade": "",
+        #             "СОр Scores (Midterms)": [''] * num_midterms_for_df,
+        #             "СОч Score (Final)": '', "Adjusted СОр %": '', "Actual СОч %": '',
+        #             "Generated Total %": '', "Penalty/Bonus Applied": 0
+        #         }
+        #     results.append(blank_data)
         if grade in [1]:  # Handle pass/fail
             is_pass_fail = True
             pass_fail_text = ""
@@ -237,7 +239,7 @@ def quarter(
             }
             results.append(blank_data)
         elif grade in config.grade_bands:
-            generated_data = gg.generate_plausible_grades(grade, subject, quarter_num)
+            generated_data = gg.generate_plausible_grades(grade, subject, quarter_num, is_beginner_class)
             results.append(generated_data)
 
     if not results and subject.name not in config.no_grades:
@@ -300,8 +302,13 @@ def quarter(
               f"from template '{template_sheet_name}' for {subject.hours()} hours a week.")
 
     [student_start_row, student_start_col] = config.student_name_cell
+    skipped_num = 0
     for idx, student_name in enumerate(filtered_students):
-        sheet.cell(row=student_start_row + idx, column=student_start_col, value=student_name)
+        if quarter_grades[idx] == 0:
+            skipped_num += 1
+            # print(f"skipped index {idx}")
+            continue
+        sheet.cell(row=student_start_row + idx - skipped_num, column=student_start_col, value=student_name)
 
     [subject_teacher_cell_row, subject_teacher_cell_col] = config.subject_teacher_cell
     title = f"Наименование предмета: {subject.name.capitalize()} Преподаватель: {subject.teacher}"
@@ -311,6 +318,11 @@ def quarter(
         [quarter_num_cell_row, quarter_num_celll_col] = config.quarter_num_cell
         quarter_text = f"Расчет оценки за {quarter_num}-четверть"
         sheet.cell(row=quarter_num_cell_row, column=quarter_num_celll_col, value=quarter_text)
+
+    if is_beginner_class:
+        for idx, score in enumerate(config.max_scores_low):
+            sheet.cell(row=config.max_scores_pos[0], column=config.max_scores_pos[1] + idx, value=score)
+            # print(f"  -> row {config.max_scores_pos[0]} col {config.max_scores_pos[1] + idx} ")
 
     rows = dataframe_to_rows(final_df, index=False, header=False)
     col_letter = config.dod_grade_col if is_dod else config.quarter_grade_col
@@ -334,16 +346,26 @@ def quarter(
     quarter_topic_end_index = len(subject.topics) if is_dod \
         else helper.get_quarter_start_index(subject, quarter_num + 1)
     # --- Topic and Homework Distribution Logic ---
-    print(f"  -> Placing {total_hours_this_quarter} dates, topics and homework")
-    print(f"  -> starting from {quarter_topic_start_index} up to {quarter_topic_end_index}")
-
-    quarter_topics = subject.topics[quarter_topic_start_index:quarter_topic_end_index]
-    quarter_hw = subject.homework[quarter_topic_start_index:quarter_topic_end_index]
-
-    repeat_topic_str = helper.get_repeat_str(subject.name, current_class.is_kz)
-    if quarter_topic_end_index - quarter_topic_start_index < total_hours_this_quarter:
-        for idx in range(quarter_topic_end_index - quarter_topic_start_index, total_hours_this_quarter):
-            quarter_topics.append(repeat_topic_str)
+    if not skip_topics_hw:
+        print(f"  -> Placing {total_hours_this_quarter} dates, topics and homework")
+        print(f"  -> starting from {quarter_topic_start_index} up to {quarter_topic_end_index}")
+    
+        quarter_topics = subject.topics[quarter_topic_start_index:quarter_topic_end_index]
+        quarter_hw = subject.homework[quarter_topic_start_index:quarter_topic_end_index]
+    
+        repeat_topic_str = helper.get_repeat_str(subject.name, current_class.is_kz)
+        if quarter_topic_end_index - quarter_topic_start_index < total_hours_this_quarter:
+            for idx in range(quarter_topic_end_index - quarter_topic_start_index, total_hours_this_quarter):
+                quarter_topics.append(repeat_topic_str)
+    
+        for idx, date in enumerate(quarter_dates):
+            sheet.cell(row=config.start_row + idx, column=dates_start_col, value=date[:5])
+    
+        for idx, topic in enumerate(quarter_topics):
+            sheet.cell(row=config.start_row + idx, column=topics_start_col, value=topic)
+    
+        for idx, hw in enumerate(quarter_hw):
+            sheet.cell(row=config.start_row + idx, column=topics_start_col+1, value=hw)
 
     if is_dod:
         for idx, grade in enumerate(quarter_grades):
@@ -352,15 +374,6 @@ def quarter(
                 pass_fail_text = "есп" if current_class.is_kz else "зач"
                 is_pass_fail = True
             sheet.cell(row=config.start_row + idx, column=overall_grade_col, value=pass_fail_text)
-
-    for idx, date in enumerate(quarter_dates):
-        sheet.cell(row=config.start_row + idx, column=dates_start_col, value=date[:5])
-
-    for idx, topic in enumerate(quarter_topics):
-        sheet.cell(row=config.start_row + idx, column=topics_start_col, value=topic)
-
-    for idx, hw in enumerate(quarter_hw):
-        sheet.cell(row=config.start_row + idx, column=topics_start_col+1, value=hw)
 
     if quarter_num == 4:
         yearly_grade_col = quarter_grade_start_col + config.quarter_to_dates_offset - 3
@@ -400,6 +413,7 @@ def quarter(
     available_cols = list(range(daily_grades_start_col, daily_end_col_idx))
 
     print("reached daily grade generation")
+    skipped_num = 0
     for idx, row in df.iterrows():
         bonus = row['Penalty/Bonus Applied']
 
@@ -411,17 +425,21 @@ def quarter(
                 # print(f"      skip row {idx}")
                 continue
 
-        if filtered_split_grades[quarter_index][idx] == 0:
-            continue
+        # if filtered_split_grades[quarter_index][idx] == 0:
+        #     skipped_num += 1
+            # print(f"skipped index {idx}")
+            # continue
+
         distribution = config.get_daily_grade_distribution(bonus, filtered_split_grades[quarter_index][idx])
         grades, weights = zip(*distribution.items())
         cols_to_fill = random.sample(available_cols, num_grades_to_place)
         # print(f"fill columns {cols_to_fill} with {num_grades_to_place}")
         for col in cols_to_fill:
             generated_grade = random.choices(grades, weights=weights, k=1)[0]
-            sheet.cell(row=student_start_row + idx, column=col, value=generated_grade)
+            sheet.cell(row=student_start_row + idx - skipped_num, column=col, value=generated_grade)
 
 
 if __name__ == "__main__":
     parallels = ["3", "4", "5", "6", "8", ]
-    main(target_parallels=parallels, is_dod=False)
+    redo_1hpw = False
+    main(target_parallels=parallels, is_dod=False, skip_topics_hw=False)

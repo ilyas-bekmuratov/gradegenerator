@@ -245,20 +245,24 @@ def test_subject(current_class: Class,
                  workbook,
                  subject_name: str,
                  quarters_to_test: List[int],
-                 is_dod=False):
+                 is_dod=False,
+                 skip_topics=False
+                 ):
     current_subject = current_class.subjects[subject_name]
 
     split = 7 if (class_number >= 5 and current_subject.has_exam) else 5
     split_grades: list[list[int]] = split_string_by_pattern(current_subject.grades, split)
     for q in quarters_to_test:
-        main.quarter(workbook, current_class, q, current_subject, split_grades, is_dod=is_dod)
+        main.quarter(workbook, current_class, q, current_subject, split_grades, is_dod=is_dod, skip_topics_hw=skip_topics)
         if is_dod:
             break
 
 
 def full_test():
+    skip_topics = False
+    redo_1hpw = False
     is_dod = False
-    classes_to_test = ["8D"]
+    classes_to_test = ["3D"]
     subjects_to_test = []
     quarters_to_test = [1, 2, 3, 4]
     output_path = str(path.join(config.output_dir, "test"+config.output_filename))
@@ -280,12 +284,13 @@ def full_test():
         print(f"\nFULL-TEST   ->class {current_class.name} subjects: {subjects_to_test}")
 
         for subject_name, subject in current_class.subjects.items():
-            # if subject.hours()>1:
-            #     continue
+            if subject.hours()>1 and redo_1hpw:
+                continue
             if not subjects_to_test or (subject_name in subjects_to_test):
                 print(f"\n--- Processing Subject: {subject_name} ({subject.hours()}h/w) for class {current_class.name} ---")
-                test_subject(current_class, class_number, workbook, subject_name, quarters_to_test, is_dod=is_dod)
+                test_subject(current_class, class_number, workbook, subject_name, quarters_to_test, is_dod=is_dod, skip_topics=skip_topics)
                 changes_made = True
+                break
 
     if changes_made:
         workbook.remove(workbook[config.template_sheet_name])

@@ -47,8 +47,9 @@ weights = {
     }
 num_midterms = 3
 max_midterms = 4
-max_scores = [20, 20, 20, 20]
-
+max_scores = [20, 20, 20, 20, 20]
+max_scores_low = [15, 15, 15, 15, 15]
+max_scores_pos = [7, 4]
 penalty_bonus_range = (-3.0, 7.0)
 total_percent_mean_offset = -2.0
 # Shifts the mean. E.g., -2.0 makes grades tend 2% lower in their band.
