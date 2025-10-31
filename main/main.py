@@ -101,6 +101,8 @@ def process_class(
         is_dod=False
 ):
     for subject_name, subject in current_class.subjects.items():
+        if subject.hours()>1:
+            continue
         print(f"\n--- Processing Subject: {subject_name} ({subject.hours()}h/w) for class {current_class.name} ---")
 
         class_number_str = re.match(r'^\d+', current_class.name).group(0)
